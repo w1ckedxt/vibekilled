@@ -2,7 +2,7 @@
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { useEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import type { Pin } from "@/lib/types";
 import { provider } from "@/lib/providers";
@@ -33,7 +33,50 @@ function makeIcon(pin: Pin): L.DivIcon {
   });
 }
 
-// Flies to a newly-created pin and opens its card automatically.
+// One marker. Memoized so an unchanged pin never re-renders on a poll — that's
+// what stops the whole map from flickering/"refreshing" every few seconds.
+const PinMarker = memo(function PinMarker({
+  pin,
+  mine,
+  onRef,
+}: {
+  pin: Pin;
+  mine: boolean;
+  onRef: (id: string, m: L.Marker | null) => void;
+}) {
+  // Icon is stable unless the pin's look actually changes (death ↔ resurrection),
+  // so reactions/presence updates never re-trigger the spawn glow animation.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const icon = useMemo(() => makeIcon(pin), [pin.provider, pin.resurrected]);
+  return (
+    <Marker
+      position={[pin.lat, pin.lng]}
+      icon={icon}
+      ref={(r) => onRef(pin.id, r)}
+      eventHandlers={{
+        popupopen: () => {
+          if (!mine) reactPin(pin.id, "view").catch(() => {});
+        },
+      }}
+    >
+      {/* Your own card stays open and is wide enough to host the Campfire. */}
+      <Popup
+        autoClose={!mine}
+        closeOnClick={!mine}
+        maxWidth={mine ? 340 : 300}
+        minWidth={mine ? 300 : 0}
+        className={mine ? "vk-mypopup" : undefined}
+      >
+        <PinPopup pin={pin} isMine={mine} />
+      </Popup>
+    </Marker>
+  );
+});
+
+// Flies to a focused pin and opens its card — but only ONCE per request. Without
+// the `opened` guard this effect (which re-runs on every poll via `pins`) would
+// re-open the popup every few seconds, and the popup's autoPan would yank the
+// map around. That repeated reopen was the "map moves randomly" glitch.
 function FocusController({
   focusTarget,
   pins,
@@ -45,6 +88,7 @@ function FocusController({
 }) {
   const map = useMap();
   const flown = useRef<number>(-1);
+  const opened = useRef<number>(-1);
 
   useEffect(() => {
     if (!focusTarget) return;
@@ -52,12 +96,56 @@ function FocusController({
       map.flyTo([focusTarget.lat, focusTarget.lng], 6, { duration: 1.8 });
       flown.current = focusTarget.n;
     }
-    const m = markerRefs.current?.get(focusTarget.id);
-    if (m) {
-      const t = setTimeout(() => m.openPopup(), 800);
-      return () => clearTimeout(t);
+    if (opened.current !== focusTarget.n) {
+      const m = markerRefs.current?.get(focusTarget.id);
+      if (m) {
+        opened.current = focusTarget.n;
+        const t = setTimeout(() => m.openPopup(), 800);
+        return () => clearTimeout(t);
+      }
+      // Marker not mounted yet — let the next `pins` change retry the open.
     }
   }, [focusTarget, pins, map, markerRefs]);
+
+  return null;
+}
+
+// Gently drifts the map toward freshly-arrived kills so the world feels alive —
+// pan only, never opening a popup (so it can't steal your open card). Disabled
+// while you're down: your own campfire is always the boss. Skips the initial
+// batch so it only follows pins that land AFTER you're watching.
+function AutoFollowController({
+  pins,
+  enabled,
+  myPinId,
+}: {
+  pins: Pin[];
+  enabled: boolean;
+  myPinId: string | null;
+}) {
+  const map = useMap();
+  const seen = useRef<Set<string>>(new Set());
+  const primed = useRef(false);
+
+  useEffect(() => {
+    const markAll = () => pins.forEach((p) => seen.current.add(p.id));
+    if (!primed.current) {
+      markAll(); // remember what's already here; don't fly to the opening batch
+      primed.current = true;
+      return;
+    }
+    if (!enabled) {
+      markAll();
+      return;
+    }
+    const fresh = pins.find((p) => p.id !== myPinId && !seen.current.has(p.id));
+    markAll();
+    if (fresh) {
+      // "Just enough": nudge closer if zoomed out, but never zoom back out.
+      const zoom = Math.max(map.getZoom(), 4);
+      map.flyTo([fresh.lat, fresh.lng], zoom, { duration: 2.2 });
+    }
+  }, [pins, enabled, myPinId, map]);
 
   return null;
 }
@@ -86,19 +174,13 @@ export default function MapView({
   focusTarget: FocusTarget | null;
   globalViewSeq?: number;
 }) {
-  // Stable icon cache so markers don't re-animate on every poll.
-  const iconCache = useRef(new Map<string, L.DivIcon>());
   const markerRefs = useRef(new Map<string, L.Marker>());
 
-  function iconFor(pin: Pin): L.DivIcon {
-    const key = `${pin.id}:${pin.resurrected}`;
-    let ic = iconCache.current.get(key);
-    if (!ic) {
-      ic = makeIcon(pin);
-      iconCache.current.set(key, ic);
-    }
-    return ic;
-  }
+  // Stable ref-setter so memoized markers never re-render just to rebind a ref.
+  const setMarkerRef = useCallback((id: string, m: L.Marker | null) => {
+    if (m) markerRefs.current.set(id, m);
+    else markerRefs.current.delete(id);
+  }, []);
 
   return (
     <MapContainer
@@ -106,7 +188,14 @@ export default function MapView({
       zoom={3}
       minZoom={2}
       maxZoom={12}
-      worldCopyJump
+      // One bounded world — pan/zoom freely inside, but no endless wrapping.
+      // Infinite wrap let Leaflet jump the view a whole world over to chase a
+      // popup, which fed the "map moves randomly" glitch. Hard edges fix that.
+      maxBounds={[
+        [-85, -180],
+        [85, 180],
+      ]}
+      maxBoundsViscosity={1}
       zoomControl={false}
       attributionControl
       className="absolute inset-0 h-full w-full"
@@ -116,42 +205,17 @@ export default function MapView({
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         attribution="&copy; OpenStreetMap &copy; CARTO"
         subdomains="abcd"
+        noWrap
         maxZoom={20}
       />
 
-      {pins.map((pin) => {
-        const mine = pin.id === myPinId;
-        return (
-          <Marker
-            key={pin.id}
-            position={[pin.lat, pin.lng]}
-            icon={iconFor(pin)}
-            ref={(r) => {
-              if (r) markerRefs.current.set(pin.id, r);
-              else markerRefs.current.delete(pin.id);
-            }}
-            eventHandlers={{
-              popupopen: () => {
-                if (!mine) reactPin(pin.id, "view").catch(() => {});
-              },
-            }}
-          >
-            {/* Your own card stays open and is wide enough to host the Campfire. */}
-            <Popup
-              autoClose={!mine}
-              closeOnClick={!mine}
-              maxWidth={mine ? 340 : 300}
-              minWidth={mine ? 300 : 0}
-              className={mine ? "vk-mypopup" : undefined}
-            >
-              <PinPopup pin={pin} isMine={mine} />
-            </Popup>
-          </Marker>
-        );
-      })}
+      {pins.map((pin) => (
+        <PinMarker key={pin.id} pin={pin} mine={pin.id === myPinId} onRef={setMarkerRef} />
+      ))}
 
       <Fireworks pins={pins} />
       <FocusController focusTarget={focusTarget} pins={pins} markerRefs={markerRefs} />
+      <AutoFollowController pins={pins} enabled={!myPinId} myPinId={myPinId} />
       <GlobalViewController seq={globalViewSeq} />
     </MapContainer>
   );

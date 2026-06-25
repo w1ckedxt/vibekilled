@@ -44,7 +44,9 @@ export default function Home() {
   const [leftTab, setLeftTab] = useState<LeftKey>("medals");
   const [mobileTab, setMobileTab] = useState<MobileKey>("globe");
   const [globalSeq, setGlobalSeq] = useState(0);
-  const [sheetOpen, setSheetOpen] = useState(true);
+  // Mobile panels start collapsed so the big "I've been hit" CTA is the first
+  // thing in reach — the map + button shouldn't be buried under feeds.
+  const [sheetOpen, setSheetOpen] = useState(false);
   const didInitFocus = useRef(false);
 
   useEffect(() => {
@@ -193,13 +195,23 @@ export default function Home() {
           </div>
         )}
 
-        {/* Global View — jump back out to the whole world */}
-        <button
-          onClick={() => setGlobalSeq((s) => s + 1)}
-          className="glass pointer-events-auto absolute bottom-6 right-3 rounded-full px-3.5 py-2 text-[13px] font-semibold text-white/75 transition hover:text-white"
-        >
-          🌍 Global View
-        </button>
+        {/* Map controls — back to your own campfire, or out to the whole world */}
+        <div className="absolute bottom-6 right-3 flex flex-col items-end gap-2">
+          {down && myPin && (
+            <button
+              onClick={() => focusOn({ id: myPin.id, lat: myPin.lat, lng: myPin.lng })}
+              className="glass pointer-events-auto rounded-full px-3.5 py-2 text-[13px] font-semibold text-ember transition hover:brightness-110"
+            >
+              🔥 My campfire
+            </button>
+          )}
+          <button
+            onClick={() => setGlobalSeq((s) => s + 1)}
+            className="glass pointer-events-auto rounded-full px-3.5 py-2 text-[13px] font-semibold text-white/75 transition hover:text-white"
+          >
+            🌍 Global View
+          </button>
+        </div>
 
         {/* Bottom-left: dev reset (Sally moved under the header) */}
         {DEV && (
