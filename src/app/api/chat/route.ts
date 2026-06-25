@@ -17,7 +17,16 @@ export async function GET(req: NextRequest) {
       { status: 403 },
     );
   }
-  const messages = await getChat();
+  // Surface only public fields — internal flags (staff/bot) never leave the
+  // server, so a staged or bot message reads as just another dev at the fire.
+  const messages = (await getChat()).map((m) => ({
+    id: m.id,
+    name: m.name,
+    provider: m.provider,
+    text: m.text,
+    at: m.at,
+    recoverAt: m.recoverAt,
+  }));
   return NextResponse.json({ messages }, { headers: { "Cache-Control": "no-store" } });
 }
 

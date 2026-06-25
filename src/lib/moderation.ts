@@ -95,8 +95,8 @@ function containsHate(text: string): boolean {
   return false;
 }
 
-// Names reserved for the host/official voice, so a regular dev can't pose as
-// "Sally" or staff in the campfire. Compared on the letters-only lowercase form.
+// Names reserved so a regular dev can't pose as staff/admin in the campfire.
+// Compared on the letters-only lowercase form.
 const RESERVED_NAMES = new Set(["sally", "cynicalsally", "admin", "moderator", "mod", "staff", "official"]);
 
 export type ModerationResult =
