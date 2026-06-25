@@ -65,6 +65,9 @@ export interface ChatMessage {
   /** Absolute epoch ms when the author's wall timer ends, so the campfire can
    *  show each person's live "time left". Snapshot of their pin at post time. */
   recoverAt?: number;
+  /** True for the official host voice (Sally, posted from admin). Rendered with
+   *  a distinct badge; only the admin endpoint can set it. */
+  official?: boolean;
   /** Internal only — true for ambient bot chatter. Never surfaced to users. */
   bot?: boolean;
 }

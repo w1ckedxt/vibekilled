@@ -122,16 +122,27 @@ export function Campfire({ myPinId, myProvider }: { myPinId: string; myProvider:
           return (
             <div key={m.id} className="vk-fadeup">
               <div className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.glow }} />
-                <span className="text-[12px] font-semibold text-white/60">{m.name}</span>
-                {left && (
+                {m.official ? (
+                  <span className="text-[11px] leading-none">🔥</span>
+                ) : (
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.glow }} />
+                )}
+                <span className={`text-[12px] font-semibold ${m.official ? "text-ember" : "text-white/60"}`}>
+                  {m.name}
+                </span>
+                {m.official && (
+                  <span className="rounded-full bg-ember/15 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-ember">
+                    host
+                  </span>
+                )}
+                {left && !m.official && (
                   <span className="rounded-full bg-ember/10 px-1.5 py-px font-mono text-[10px] font-semibold text-ember">
                     ⏳ {left}
                   </span>
                 )}
                 <span className="ml-auto text-[11px] text-white/25">{timeAgo(m.at, now)}</span>
               </div>
-              <p className="ml-3 text-[13px] leading-snug text-white/85">{m.text}</p>
+              <p className={`ml-3 text-[13px] leading-snug ${m.official ? "text-ember/90" : "text-white/85"}`}>{m.text}</p>
             </div>
           );
         })}

@@ -95,6 +95,10 @@ function containsHate(text: string): boolean {
   return false;
 }
 
+// Names reserved for the host/official voice, so a regular dev can't pose as
+// "Sally" or staff in the campfire. Compared on the letters-only lowercase form.
+const RESERVED_NAMES = new Set(["sally", "cynicalsally", "admin", "moderator", "mod", "staff", "official"]);
+
 export type ModerationResult =
   | { ok: true; text: string | undefined }
   | { ok: false; reason: string };
@@ -128,6 +132,10 @@ export function moderateName(raw: string | undefined): ModerationResult {
 
   if (containsHate(text)) {
     return { ok: false, reason: "That name won't fly. Pick one without the slur." };
+  }
+  // Reserved host identities: nobody gets to impersonate the official voice.
+  if (RESERVED_NAMES.has(text.toLowerCase().replace(/[^a-z]/g, ""))) {
+    return { ok: false, reason: "That name is reserved. Pick another." };
   }
 
   return { ok: true, text: text || undefined };

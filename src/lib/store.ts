@@ -335,6 +335,25 @@ export async function postChat(msg: Omit<ChatMessage, "id" | "at">, userId?: str
   return full;
 }
 
+/** Remove a single campfire message by id (admin moderation). Rewrites the list
+ *  preserving order. Returns true if a message was actually removed. */
+export async function deleteChatMessage(id: string): Promise<boolean> {
+  if (!hasRedis) return false;
+  const raw = (await redis.lrange<string | ChatMessage>(K.chat, 0, -1)) ?? [];
+  const kept: (string | ChatMessage)[] = [];
+  let removed = false;
+  for (const r of raw) {
+    const o = typeof r === "string" ? (() => { try { return JSON.parse(r) as ChatMessage; } catch { return null; } })() : r;
+    if (o && o.id === id) { removed = true; continue; }
+    kept.push(r);
+  }
+  if (removed) {
+    await redis.del(K.chat);
+    if (kept.length) await redis.rpush(K.chat, ...kept.map((x) => (typeof x === "string" ? x : JSON.stringify(x))));
+  }
+  return removed;
+}
+
 // ── Campfire presence ("LIVE IN CHAT" = real humans) + ambient bots ──────────
 /** Register/refresh campfire presence; returns how many real humans are around the fire. */
 export async function joinCampfire(userId: string): Promise<number> {

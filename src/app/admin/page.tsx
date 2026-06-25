@@ -26,7 +26,7 @@ interface AdminStats {
   days: Record<string, number>;
   leaderboard: { rank: number; name: string; score: number; good4u: number; sympathy: number }[];
   events: AdminEvent[];
-  chat: { id: string; name: string; provider: string; text: string; at: number; bot?: boolean }[];
+  chat: { id: string; name: string; provider: string; text: string; at: number; official?: boolean; bot?: boolean }[];
 }
 
 const EVENT_META: Record<AdminEvent["type"], { icon: string; label: string; color: string }> = {
@@ -39,7 +39,21 @@ const EVENT_META: Record<AdminEvent["type"], { icon: string; label: string; colo
   resurrection: { icon: "🎆", label: "resurrected", color: "text-gold" },
 };
 
-const KEY = "vk:adminToken";
+const COOKIE = "vk_admin";
+
+// Persist the admin token in a long-lived cookie so the dash stays unlocked
+// across reloads and restarts (no more re-typing the token every visit).
+function getCookie(name: string): string {
+  if (typeof document === "undefined") return "";
+  const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return m ? decodeURIComponent(m[1]) : "";
+}
+function setCookie(name: string, value: string, days: number) {
+  document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${days * 86400}; Path=/; SameSite=Strict`;
+}
+function clearCookie(name: string) {
+  document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Strict`;
+}
 
 export default function AdminPage() {
   const [token, setToken] = useState("");
@@ -47,9 +61,11 @@ export default function AdminPage() {
   const [data, setData] = useState<AdminStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [chatText, setChatText] = useState("");
+  const [posting, setPosting] = useState(false);
 
   useEffect(() => {
-    const t = sessionStorage.getItem(KEY);
+    const t = getCookie(COOKIE);
     if (t) setToken(t);
   }, []);
 
@@ -60,7 +76,7 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/stats", { headers: { "x-admin-token": t }, cache: "no-store" });
       if (res.status === 401) {
         setError("Wrong token.");
-        sessionStorage.removeItem(KEY);
+        clearCookie(COOKIE);
         setToken("");
         return;
       }
@@ -86,9 +102,56 @@ export default function AdminPage() {
   function submit() {
     const t = input.trim();
     if (!t) return;
-    sessionStorage.setItem(KEY, t);
+    setCookie(COOKIE, t, 30);
     setToken(t);
   }
+
+  function logout() {
+    clearCookie(COOKIE);
+    setToken("");
+    setData(null);
+  }
+
+  // Post into the campfire as the host (Sally) and refresh the monitor.
+  const sendAsSally = useCallback(async () => {
+    const t = chatText.trim();
+    if (!t || posting) return;
+    setPosting(true);
+    try {
+      const res = await fetch("/api/admin/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+        body: JSON.stringify({ text: t }),
+      });
+      if (res.ok) {
+        setChatText("");
+        load(token);
+      } else {
+        setError((await res.json().catch(() => ({}))).message ?? "Could not send.");
+      }
+    } catch {
+      setError("Network error.");
+    } finally {
+      setPosting(false);
+    }
+  }, [chatText, posting, token, load]);
+
+  // Remove any campfire message by id (moderation).
+  const deleteMsg = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch("/api/admin/chat", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json", "x-admin-token": token },
+          body: JSON.stringify({ id }),
+        });
+        if (res.ok) load(token);
+      } catch {
+        setError("Network error.");
+      }
+    },
+    [token, load],
+  );
 
   if (!token) {
     return (
@@ -123,7 +186,12 @@ export default function AdminPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-5 flex items-center justify-between">
           <h1 className="text-2xl font-extrabold text-white">VibeKilled <span className="text-coral">Admin</span></h1>
-          <span className="text-xs text-white/40">{loading ? "refreshing…" : "live · 10s"}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-white/40">{loading ? "refreshing…" : "live · 10s"}</span>
+            <button onClick={logout} className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/50 hover:text-white/80">
+              Log out
+            </button>
+          </div>
         </div>
         {error && <p className="mb-4 text-sm text-coral">{error}</p>}
 
@@ -158,16 +226,44 @@ export default function AdminPage() {
             </div>
           </Card>
 
-          <Card title="🔥 Campfire · live monitor">
-            <div className="vk-scroll max-h-80 space-y-2 overflow-y-auto pr-1">
+          <Card title="🔥 Campfire · chat as Sally">
+            <div className="vk-scroll max-h-72 space-y-2 overflow-y-auto pr-1">
               {[...(data?.chat ?? [])].reverse().map((m) => (
-                <div key={m.id} className="text-sm">
-                  <span className="font-semibold text-white/70">{m.name}</span>
-                  <span className="ml-2 text-xs text-white/25">{rel(m.at)}</span>
-                  <p className="text-white/85">{m.text}</p>
+                <div key={m.id} className="group flex items-start gap-2 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <span className={`font-semibold ${m.official ? "text-ember" : "text-white/70"}`}>
+                      {m.official ? `🔥 ${m.name}` : m.name}
+                    </span>
+                    {m.official && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide text-ember">host</span>}
+                    <span className="ml-2 text-xs text-white/25">{rel(m.at)}</span>
+                    <p className={`break-words ${m.official ? "text-ember/90" : "text-white/85"}`}>{m.text}</p>
+                  </div>
+                  <button
+                    onClick={() => deleteMsg(m.id)}
+                    title="Delete message"
+                    className="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-white/25 opacity-0 transition hover:bg-coral/15 hover:text-coral group-hover:opacity-100"
+                  >
+                    🗑
+                  </button>
                 </div>
               ))}
               {!data?.chat?.length && <Empty />}
+            </div>
+            <div className="mt-3 flex gap-1.5 border-t border-white/8 pt-3">
+              <input
+                value={chatText}
+                onChange={(e) => setChatText(e.target.value.slice(0, 200))}
+                onKeyDown={(e) => e.key === "Enter" && sendAsSally()}
+                placeholder="Message the campfire as Sally…"
+                className="flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-ember/50 focus:outline-none"
+              />
+              <button
+                onClick={sendAsSally}
+                disabled={posting || !chatText.trim()}
+                className="rounded-lg bg-ember/20 px-3 py-2 text-sm font-bold text-ember transition hover:bg-ember/30 disabled:opacity-40"
+              >
+                Send
+              </button>
             </div>
           </Card>
         </div>
