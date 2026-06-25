@@ -186,7 +186,9 @@ export default function MapView({
     <MapContainer
       center={[25, 10]}
       zoom={3}
-      minZoom={2}
+      // minZoom 3 keeps one world wide enough to fill the viewport, so you can
+      // never zoom out far enough to see the map tiled side-by-side.
+      minZoom={3}
       maxZoom={12}
       // One bounded world — pan/zoom freely inside, but no endless wrapping.
       // Infinite wrap let Leaflet jump the view a whole world over to chase a

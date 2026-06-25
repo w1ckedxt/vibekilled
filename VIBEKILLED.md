@@ -5,11 +5,13 @@
 
 ---
 
-## STATUS — 25 jun 2026
+## STATUS — 26 jun 2026
 🟢 **LIVE** op https://vibekilled.rip (+ vibekilled.vercel.app)
 Volledige feature-set draait in productie. Git gesynced & gepusht.
 
 ## ACTIVE WORK / NEXT
+- [ ] Op telefoon checken: ronde "I've been hit" CTA vs bottom-sheet; auto-pan-gevoel (zachter/uit?)
+- [ ] Map-herhaling bij uitzoomen: na deploy **hard refreshen** (Cmd+Shift+R) — minZoom 3 + noWrap
 - [ ] Campfire-in-popup op mobiel finetunen (Leaflet popup + toetsenbord)
 - [ ] Evt. chat als mobiele sheet i.p.v. in de map-popup
 - [ ] Vercel WAF/BotID bij echte traffic-piek
@@ -27,13 +29,16 @@ Volledige feature-set draait in productie. Git gesynced & gepusht.
 | Deploy | Vercel, **manueel via `vercel --prod`** (geen GitHub auto-deploy) |
 
 ## FEATURES (af)
-- Kaart met 💀/🎆 emoji-markers, death-burst + vuurwerk, zoom-to-area + Global View, provider-filter
+- Kaart met 💀/🎆 emoji-markers, death-burst + vuurwerk, zoom-to-area + Global View, **🔥 My campfire** (terug naar je pin), provider-filter
+- **Begrensde wereld**: één wereld (maxBounds + noWrap, minZoom 3), geen oneindig herhalen; markers memoized + popup opent 1×/focus (geen random map-verspringen)
+- **Grote ronde "I've been hit" CTA** (💀+⚔️, "rate-limited? BAM"); nieuwe kills → zachte auto-pan (uit terwijl je zelf down bent)
 - Kill-flow + privacy-jitter + last words (gemodereerd: geen links/haat, scheldwoorden ok)
 - Anti-abuse: 1 actieve pin/user + 3u cooldown; rate limits (kills/reacties/chat)
 - Reacties: Sympathy (down) / Good4U (resurrected) / 🤝 handshake; spectaculaire links-FX
 - **Campfire of Hope**: chat vast aan je pin-kaartje, alleen tijdens timer, alleen vanaf join, "X warming up"
 - **Medals** (30+, klik=bubbel, Share position), **Vibe Kings** leaderboard, **Globe of Pain** feed (max 50)
 - **Admin** (`/admin`): online/live-in-chat, totals, providers, landen, grafiek, journey-feed, chat-monitor
+- **Stealth admin chat**: host post als willekeurige/zelfgekozen dev-alias (geen "Sally"/badge); interne `staff`-vlag gestript uit publieke API; "you"-tag + 🎲 alias in dashboard
 - Responsive (inklapbare mobiele sheet), 💀 favicon, "powered by CynicalSally"
 
 ## ENV (Vercel + .env.local)
@@ -49,3 +54,4 @@ Volledige feature-set draait in productie. Git gesynced & gepusht.
 
 ## ARCHIEF
 - 25 jun 2026: van 0 → volledige live hub gebouwd (zie `/plan/session-2026-06-25.md`)
+- 26 jun 2026: stealth admin chat, ronde kill-CTA, map random-refresh/glitch fix + begrensde wereld (zie `/plan/session-2026-06-26.md`)
