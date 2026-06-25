@@ -25,6 +25,9 @@ export function Campfire({ myPinId, myProvider }: { myPinId: string; myProvider:
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // You only ever see the fire from the moment YOU sat down — never the backlog.
+  const joinedAt = useRef<number>(Date.now() - 1000);
+  const visible = (messages ?? []).filter((m) => m.at >= joinedAt.current);
 
   useEffect(() => {
     const t = setTimeout(() => setJoined(true), 1500);
@@ -50,7 +53,7 @@ export function Campfire({ myPinId, myProvider }: { myPinId: string; myProvider:
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [visible.length]);
 
   async function send() {
     const t = text.trim();
@@ -107,8 +110,8 @@ export function Campfire({ myPinId, myProvider }: { myPinId: string; myProvider:
       </div>
 
       <div ref={scrollRef} className="vk-scroll flex-1 space-y-2 overflow-y-auto px-3 py-2.5">
-        {!messages?.length && <div className="py-4 text-center text-[13px] text-white/35">The fire is quiet. Warm it up. 🪵</div>}
-        {messages?.map((m) => {
+        {!visible.length && <div className="py-4 text-center text-[13px] text-white/35">The fire is quiet. Warm it up. 🪵</div>}
+        {visible.map((m) => {
           const p = provider(m.provider);
           return (
             <div key={m.id} className="vk-fadeup">
