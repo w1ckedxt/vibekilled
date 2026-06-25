@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPin, getUserActivePin, getUserCooldown, listPins } from "@/lib/store";
 import { obfuscate, placeLabel, hubForSeed } from "@/lib/geo";
 import { devName } from "@/lib/names";
-import { moderateMessage } from "@/lib/moderation";
+import { moderateMessage, moderateName } from "@/lib/moderation";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { PROVIDERS } from "@/lib/providers";
 import type { ProviderId } from "@/lib/types";
@@ -102,7 +102,13 @@ export async function POST(req: NextRequest) {
   const { lat, lng } = obfuscate(source.lat, source.lng);
   const country = req.headers.get("x-vercel-ip-country") ?? undefined;
   const place = placeLabel(country);
-  const name = (body.name ?? "").trim() || devName();
+  // Moderate the alias/status name: strip links, reject hate speech. Falls back
+  // to a generated dev name when empty (or empty after stripping).
+  const moderatedName = moderateName(body.name);
+  if (!moderatedName.ok) {
+    return NextResponse.json({ error: "moderation", message: moderatedName.reason }, { status: 422 });
+  }
+  const name = moderatedName.text || devName();
 
   // Moderate last words: strip links, allow profanity, reject hate speech.
   const moderated = moderateMessage(body.message);

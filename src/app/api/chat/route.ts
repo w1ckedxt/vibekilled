@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getChat, getUserActivePin, postChat } from "@/lib/store";
-import { moderateMessage } from "@/lib/moderation";
+import { moderateMessage, moderateName } from "@/lib/moderation";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { PROVIDERS } from "@/lib/providers";
 import { devName } from "@/lib/names";
@@ -60,7 +60,11 @@ export async function POST(req: NextRequest) {
   if (!text) return NextResponse.json({ error: "empty", message: "Say something warm (no links)." }, { status: 422 });
 
   const provider = (body.provider ?? "other") as ProviderId;
-  const name = (body.name ?? "").trim() || devName();
+
+  // Same hate filter on the campfire alias as everywhere else.
+  const modName = moderateName(body.name);
+  if (!modName.ok) return NextResponse.json({ error: "moderation", message: modName.reason }, { status: 422 });
+  const name = modName.text || devName();
 
   const message = await postChat(
     {
