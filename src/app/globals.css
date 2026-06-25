@@ -1,26 +1,115 @@
 @import "tailwindcss";
 
+/* ── VibeKilled.rip — Deep Space design tokens ─────────────────────────────── */
+@theme {
+  --color-space: #0a0a0a;
+  --color-space-2: #111114;
+  --color-coral: #ff5e5b; /* errors / kills */
+  --color-ember: #ff9f1c; /* warnings */
+  --color-gold: #ffd166; /* resurrection / fireworks */
+  --color-electric: #4cc9f0; /* UI / text accent */
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--color-space);
+  color: #e8e8ea;
+  font-family: var(--font-sans);
+  overflow: hidden; /* the map owns the viewport */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
+
+/* Glassmorphism surface used across overlays */
+.glass {
+  background: rgba(17, 17, 20, 0.72);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Leaflet dark overrides ────────────────────────────────────────────────── */
+.leaflet-container {
+  background: #050507 !important;
+  font-family: var(--font-sans);
+  outline: none;
+}
+.leaflet-control-attribution {
+  background: rgba(10, 10, 10, 0.6) !important;
+  color: #555 !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: #777 !important;
+}
+.leaflet-bar a {
+  background: rgba(17, 17, 20, 0.85) !important;
+  color: #ccc !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── Custom pin markers (DivIcon) ──────────────────────────────────────────── */
+.vk-pin {
+  display: grid;
+  place-items: center;
+}
+.vk-pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  position: relative;
+}
+.vk-pin-dot::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: 0.5;
+  animation: vk-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.vk-pin-resurrected .vk-pin-dot {
+  background: var(--color-gold) !important;
+  box-shadow: 0 0 16px 4px var(--color-gold);
+}
+
+@keyframes vk-ping {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  80%, 100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes vk-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.vk-float { animation: vk-float 3.5s ease-in-out infinite; }
+
+@keyframes vk-fadeup {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.vk-fadeup { animation: vk-fadeup 0.35s ease-out both; }
+
+@keyframes vk-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 94, 91, 0.5); }
+  50% { box-shadow: 0 0 0 14px rgba(255, 94, 91, 0); }
+}
+.vk-pulse { animation: vk-pulse 2.2s infinite; }
+
+/* Thin scrollbars for the feed */
+.vk-scroll::-webkit-scrollbar { width: 6px; }
+.vk-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 3px; }
+.vk-scroll { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.12) transparent; }

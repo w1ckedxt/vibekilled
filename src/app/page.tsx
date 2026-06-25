@@ -1,65 +1,94 @@
-import Image from "next/image";
+"use client";
+
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import { usePins } from "@/lib/hooks";
+import { getMyPin, setMyPin } from "@/lib/identity";
+import { KillButton } from "@/components/KillButton";
+import { KillModal } from "@/components/KillModal";
+import { LiveFeed } from "@/components/LiveFeed";
+import { SessionPanel } from "@/components/SessionPanel";
+import { StatsBar } from "@/components/StatsBar";
+import { Toaster } from "@/components/Toaster";
+
+// Leaflet touches `window`, so the map is client-only.
+const MapView = dynamic(() => import("@/components/MapView"), {
+  ssr: false,
+  loading: () => <div className="absolute inset-0 grid place-items-center text-white/30">Loading the graveyard…</div>,
+});
 
 export default function Home() {
+  const { data: pins } = usePins();
+  const [myPinId, setMyPinId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    setMyPinId(getMyPin());
+  }, []);
+
+  function clearMine() {
+    setMyPin(null);
+    setMyPinId(null);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="relative h-full w-full overflow-hidden">
+      <MapView pins={pins ?? []} myPinId={myPinId} />
+
+      {/* Overlay layer — transparent to map clicks except on panels */}
+      <div className="pointer-events-none absolute inset-0 z-[600]">
+        {/* Header */}
+        <div className="absolute left-3 top-3">
+          <h1 className="text-lg font-extrabold tracking-tight text-white">
+            VibeKilled<span className="text-coral">.rip</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+          <p className="hidden text-[11px] text-white/40 sm:block">Dev Down Detector</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        {/* Stats pill */}
+        <div className="absolute right-3 top-3">
+          <StatsBar />
+        </div>
+
+        {/* Side panel (desktop right column / mobile bottom sheet) */}
+        <div className="absolute inset-x-3 bottom-24 flex flex-col gap-2.5 sm:inset-x-auto sm:bottom-auto sm:right-3 sm:top-20 sm:w-[330px]">
+          {myPinId ? (
+            <SessionPanel
+              myPinId={myPinId}
+              onClear={clearMine}
+              onLogAnother={() => {
+                clearMine();
+                setModalOpen(true);
+              }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          ) : (
+            <IntroCard />
+          )}
+          <LiveFeed />
         </div>
-      </main>
+
+        {/* Kill button — hidden while you're already down */}
+        {!myPinId && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
+            <KillButton onClick={() => setModalOpen(true)} />
+          </div>
+        )}
+      </div>
+
+      <KillModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={setMyPinId} />
+      <Toaster />
+    </main>
+  );
+}
+
+function IntroCard() {
+  return (
+    <div className="glass pointer-events-auto rounded-2xl p-4">
+      <p className="text-sm font-semibold text-white">Hit a wall? You&apos;re not alone. 🪦</p>
+      <p className="mt-1 text-xs text-white/55">
+        Log your rate-limit, watch the world resurrect, and let strangers feel your pain. No accounts. Locations are
+        always estimated.
+      </p>
     </div>
   );
 }
