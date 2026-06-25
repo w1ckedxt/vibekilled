@@ -50,6 +50,12 @@ function render(ev: FeedEvent): { text: string; accent: string; tag: string } {
       return { text: `Someone cheered ${ev.name}'s comeback 💛`, accent: "border-l-gold", tag: "LOVE" };
     case "sympathy":
       return { text: `${ev.name} just got some sympathy 🫂`, accent: "border-l-electric", tag: "💧" };
+    default:
+      // Some events (e.g. "handshake") exist in the feed data but not in FeedEventType.
+      // Handle them by string so an unknown type can never crash the feed.
+      if ((ev.type as string) === "handshake")
+        return { text: `Someone told ${ev.name}: I hear you 🤝`, accent: "border-l-electric", tag: "RESPECT" };
+      return { text: "", accent: "", tag: "" };
   }
 }
 
