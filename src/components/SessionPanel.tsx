@@ -4,35 +4,40 @@ import { useEffect, useRef } from "react";
 import { useMyPin, useNow } from "@/lib/hooks";
 import { provider } from "@/lib/providers";
 import { formatCountdown } from "@/lib/time";
-import { ACHIEVEMENTS } from "@/lib/achievements";
-import { getUnlocked } from "@/lib/identity";
-import { toast } from "@/lib/toast";
+import { celebrate } from "@/lib/celebrate";
+import { ShareButton } from "./ShareButton";
 
-// The personal panel for someone who's currently down: a big live countdown,
-// the love they've collected this session, and their achievement shelf.
-export function SessionPanel({ myPinId, onClear, onLogAnother }: { myPinId: string; onClear: () => void; onLogAnother: () => void }) {
+// Your own card while you're down: a big live countdown + share. Incoming love
+// is celebrated spectacularly on the LEFT (ReactionFX), not as a status toast.
+// All-time stats + medals live in the left Medals panel — kept out of here.
+export function SessionPanel({
+  myPinId,
+  onClear,
+  onLogAnother,
+}: {
+  myPinId: string;
+  onClear: () => void;
+  onLogAnother: () => void;
+}) {
   const { data: pin, isFetched } = useMyPin(myPinId);
   const now = useNow();
-  const prevGood = useRef<number | null>(null);
+  const prev = useRef<{ good4u: number; sympathy: number; handshake: number } | null>(null);
 
   // Pin vanished (expired past grace) → reset so the user can log again.
   useEffect(() => {
     if (isFetched && pin === null) onClear();
   }, [isFetched, pin, onClear]);
 
-  // "10 fellow devs felt your pain" — toast when your Good4U count climbs.
+  // Fire the spectacular left-side splash whenever a count climbs.
   useEffect(() => {
     if (!pin) return;
-    if (prevGood.current !== null && pin.good4u > prevGood.current) {
-      const delta = pin.good4u - prevGood.current;
-      toast({
-        tone: "love",
-        emoji: "💛",
-        title: `${pin.good4u} fellow dev${pin.good4u === 1 ? "" : "s"} felt your pain`,
-        body: `+${delta} just cheered your comeback.`,
-      });
+    const p = prev.current;
+    if (p) {
+      if (pin.sympathy > p.sympathy) celebrate("sympathy", pin.sympathy - p.sympathy, pin.sympathy);
+      if (pin.good4u > p.good4u) celebrate("good4u", pin.good4u - p.good4u, pin.good4u);
+      if (pin.handshake > p.handshake) celebrate("handshake", pin.handshake - p.handshake, pin.handshake);
     }
-    prevGood.current = pin.good4u;
+    prev.current = { good4u: pin.good4u, sympathy: pin.sympathy, handshake: pin.handshake };
   }, [pin]);
 
   if (!pin) return null;
@@ -40,13 +45,12 @@ export function SessionPanel({ myPinId, onClear, onLogAnother }: { myPinId: stri
   const meta = provider(pin.provider);
   const remaining = pin.recoverAt - now;
   const resurrected = pin.resurrected || remaining <= 0;
-  const unlocked = new Set(getUnlocked());
 
   return (
     <div className="glass pointer-events-auto rounded-2xl p-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: meta.glow, boxShadow: `0 0 8px ${meta.glow}` }} />
-        <span className="text-xs font-semibold text-white/80">
+        <span className="h-3 w-3 rounded-full" style={{ background: meta.glow, boxShadow: `0 0 8px ${meta.glow}` }} />
+        <span className="text-sm font-semibold text-white/85">
           {resurrected ? "You made it back" : `Down by ${meta.label}`}
         </span>
       </div>
@@ -54,7 +58,7 @@ export function SessionPanel({ myPinId, onClear, onLogAnother }: { myPinId: stri
       {resurrected ? (
         <div className="py-2 text-center">
           <div className="text-2xl font-bold text-gold">✨ You&apos;re alive ✨</div>
-          <p className="mt-1 text-xs text-white/50">The quota gods have shown mercy.</p>
+          <p className="mt-1 text-[13px] text-white/55">The quota gods have shown mercy.</p>
           <button
             onClick={onLogAnother}
             className="mt-3 w-full rounded-xl bg-coral py-2.5 text-sm font-bold text-black transition hover:brightness-110"
@@ -64,48 +68,15 @@ export function SessionPanel({ myPinId, onClear, onLogAnother }: { myPinId: stri
         </div>
       ) : (
         <div className="py-1 text-center">
-          <div className="text-[10px] uppercase tracking-widest text-white/40">resurrecting in</div>
+          <div className="text-[11px] uppercase tracking-widest text-white/45">resurrecting in</div>
           <div className="vk-float my-1 font-mono text-4xl font-bold text-ember tabular-nums">
             {formatCountdown(remaining)}
           </div>
-          <p className="text-[11px] text-white/40">Hang tight. The whole map can see you suffering.</p>
+          <p className="text-[13px] text-white/45">Hang tight. The whole map can see you suffering.</p>
         </div>
       )}
 
-      {/* Session love */}
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <Mini value={pin.good4u} label="Good4U" color="text-gold" />
-        <Mini value={pin.sympathy} label="sympathy" color="text-coral" />
-        <Mini value={pin.views} label="views" color="text-electric" />
-      </div>
-
-      {/* Achievements shelf */}
-      <div className="mt-3 border-t border-white/8 pt-3">
-        <div className="mb-1.5 text-[10px] uppercase tracking-wide text-white/40">Achievements</div>
-        <div className="flex flex-wrap gap-1.5">
-          {ACHIEVEMENTS.map((a) => {
-            const got = unlocked.has(a.id);
-            return (
-              <span
-                key={a.id}
-                title={got ? `${a.title} — ${a.blurb}` : "Locked"}
-                className={`rounded-full px-2 py-1 text-[11px] ${got ? "bg-ember/15 text-ember" : "bg-white/5 text-white/25"}`}
-              >
-                {got ? `${a.emoji} ${a.title}` : "🔒"}
-              </span>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Mini({ value, label, color }: { value: number; label: string; color: string }) {
-  return (
-    <div className="rounded-lg bg-white/5 py-1.5">
-      <div className={`font-mono text-base font-bold ${color}`}>{value}</div>
-      <div className="text-[9px] uppercase tracking-wide text-white/40">{label}</div>
+      <ShareButton resurrected={resurrected} className="mt-3 w-full" />
     </div>
   );
 }

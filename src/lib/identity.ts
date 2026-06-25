@@ -84,6 +84,11 @@ export function markReacted(pinId: string, action: string) {
   localStorage.setItem(KEYS.reactions, JSON.stringify(all));
 }
 
+/** Dev helper: wipe reaction history so you can give sympathy/good4u again. */
+export function clearReactions() {
+  localStorage.removeItem(KEYS.reactions);
+}
+
 // ── Achievements ──────────────────────────────────────────────────────────────
 export function getUnlocked(): string[] {
   if (typeof window === "undefined") return [];

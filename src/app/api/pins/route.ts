@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPin, getUserActivePin, listPins } from "@/lib/store";
-import { obfuscate, placeLabel } from "@/lib/geo";
+import { createPin, getUserActivePin, getUserCooldown, listPins } from "@/lib/store";
+import { obfuscate, placeLabel, hubForSeed } from "@/lib/geo";
 import { devName } from "@/lib/names";
+import { moderateMessage } from "@/lib/moderation";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { PROVIDERS } from "@/lib/providers";
 import type { ProviderId } from "@/lib/types";
 
@@ -51,19 +53,38 @@ export async function POST(req: NextRequest) {
   const provider = (body.provider ?? "other") as ProviderId;
   if (!PROVIDERS[provider]) return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
 
+  // Throttle pin creation per IP (bot/spam guard).
+  const rl = await rateLimit("create", clientIp(req.headers), 30, 3600);
+  if (!rl.ok) {
+    return NextResponse.json({ error: "rate", message: "Whoa, slow down. Even rate limits have rate limits." }, { status: 429 });
+  }
+
   const recoveryMinutes = Math.round(Number(body.recoveryMinutes));
   if (!Number.isFinite(recoveryMinutes) || recoveryMinutes < 1 || recoveryMinutes > 1440) {
     return NextResponse.json({ error: "recoveryMinutes must be 1–1440" }, { status: 400 });
   }
 
   // Anti-abuse: you can only have one active wall at a time. You must wait out
-  // your own recovery timer before logging another.
-  const existing = await getUserActivePin(userId);
+  // your own recovery timer before logging another. (Bypassed in dev mode.)
+  const devMode = process.env.VIBEKILLED_DEV === "1";
+  const existing = devMode ? null : await getUserActivePin(userId);
   if (existing) {
     return NextResponse.json(
       { error: "active", message: "You're still down. Wait for your own resurrection before logging another.", pinId: existing },
       { status: 409 },
     );
+  }
+
+  // Post-resurrection cooldown: can't claim a fresh wall for 3h after coming back.
+  if (!devMode) {
+    const cd = await getUserCooldown(userId);
+    if (cd > 0) {
+      const hrs = Math.max(1, Math.ceil(cd / 3600));
+      return NextResponse.json(
+        { error: "cooldown", message: `You *just* came back. Touch grass for ~${hrs}h before the next wall. 🌱` },
+        { status: 429 },
+      );
+    }
   }
 
   // Resolve a coarse, jittered location. Precise GPS is never stored.
@@ -74,16 +95,24 @@ export async function POST(req: NextRequest) {
   } else if (ip) {
     source = ip;
   }
-  // Last resort when we truly have nothing: drop somewhere over the ocean of despair.
-  if (!source) source = { lat: 20 + Math.random() * 30, lng: -40 + Math.random() * 80 };
+  // Last resort when we truly have nothing (e.g. localhost has no IP headers):
+  // drop on a stable dev hub keyed by user — on land, and no teleporting.
+  if (!source) source = hubForSeed(userId);
 
   const { lat, lng } = obfuscate(source.lat, source.lng);
-  const place = placeLabel(req.headers.get("x-vercel-ip-country"));
+  const country = req.headers.get("x-vercel-ip-country") ?? undefined;
+  const place = placeLabel(country);
   const name = (body.name ?? "").trim() || devName();
-  const message = (body.message ?? "").trim().slice(0, 140) || undefined;
+
+  // Moderate last words: strip links, allow profanity, reject hate speech.
+  const moderated = moderateMessage(body.message);
+  if (!moderated.ok) {
+    return NextResponse.json({ error: "moderation", message: moderated.reason }, { status: 422 });
+  }
+  const message = moderated.text;
 
   try {
-    const result = await createPin({ userId, provider, lat, lng, recoveryMinutes, name, message, place });
+    const result = await createPin({ userId, provider, lat, lng, recoveryMinutes, name, message, place, country });
     return NextResponse.json(result, { status: 201 });
   } catch (e) {
     if ((e as { code?: string }).code === "NO_DB") {

@@ -42,3 +42,56 @@ export function placeLabel(countryCode?: string | null): string {
   const name = countryName(countryCode);
   return name ? `somewhere in ${name}` : "somewhere out there";
 }
+
+// Major developer hubs — used as a sensible fallback when we have no location
+// at all, so nobody ends up floating in the middle of the ocean.
+const HUBS: Array<[number, number]> = [
+  [37.77, -122.42], // San Francisco
+  [40.71, -74.01], // New York
+  [30.27, -97.74], // Austin
+  [43.65, -79.38], // Toronto
+  [51.51, -0.13], // London
+  [52.37, 4.9], // Amsterdam
+  [52.52, 13.4], // Berlin
+  [48.86, 2.35], // Paris
+  [59.33, 18.07], // Stockholm
+  [53.35, -6.26], // Dublin
+  [52.23, 21.01], // Warsaw
+  [40.42, -3.7], // Madrid
+  [32.08, 34.78], // Tel Aviv
+  [12.97, 77.59], // Bangalore
+  [1.35, 103.82], // Singapore
+  [35.68, 139.69], // Tokyo
+  [37.57, 126.98], // Seoul
+  [-6.21, 106.85], // Jakarta
+  [-33.87, 151.21], // Sydney
+  [-23.55, -46.63], // São Paulo
+  [19.43, -99.13], // Mexico City
+  [6.52, 3.38], // Lagos
+];
+
+/**
+ * A dev-hub city to fall back to when we have no location at all. Keyed by a
+ * seed (the userId) so the same person always lands in the SAME city instead of
+ * teleporting between drops. Keeps pins on land.
+ */
+export function hubForSeed(seed?: string): { lat: number; lng: number } {
+  let idx: number;
+  if (seed) {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+    idx = Math.abs(h) % HUBS.length;
+  } else {
+    idx = Math.floor(Math.random() * HUBS.length);
+  }
+  const [lat, lng] = HUBS[idx];
+  return { lat, lng };
+}
+
+/** ISO country code → flag emoji (e.g. "NL" → 🇳🇱). Empty string if unknown. */
+export function flagEmoji(countryCode?: string | null): string {
+  if (!countryCode || countryCode.length !== 2) return "";
+  const cc = countryCode.toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return "";
+  return String.fromCodePoint(...[...cc].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+}

@@ -1,0 +1,271 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { provider } from "@/lib/providers";
+import { flagEmoji } from "@/lib/geo";
+
+interface AdminEvent {
+  id: string;
+  type: "land" | "kill" | "chat" | "good4u" | "sympathy" | "handshake" | "resurrection";
+  name?: string;
+  provider?: string;
+  country?: string;
+  text?: string;
+  at: number;
+}
+
+interface AdminStats {
+  online: number;
+  liveInChat: number;
+  totalUsers: number;
+  kills: number;
+  resurrections: number;
+  active: number;
+  providers: Record<string, number>;
+  countries: Record<string, number>;
+  days: Record<string, number>;
+  leaderboard: { rank: number; name: string; score: number; good4u: number; sympathy: number }[];
+  events: AdminEvent[];
+  chat: { id: string; name: string; provider: string; text: string; at: number; bot?: boolean }[];
+}
+
+const EVENT_META: Record<AdminEvent["type"], { icon: string; label: string; color: string }> = {
+  land: { icon: "🛬", label: "landed on the page", color: "text-white/50" },
+  kill: { icon: "💀", label: "tapped I've been hit", color: "text-coral" },
+  chat: { icon: "💬", label: "chatted", color: "text-ember" },
+  good4u: { icon: "💛", label: "gave Good4U", color: "text-gold" },
+  sympathy: { icon: "🫂", label: "gave sympathy", color: "text-emerald-400" },
+  handshake: { icon: "🤝", label: "said I hear you", color: "text-electric" },
+  resurrection: { icon: "🎆", label: "resurrected", color: "text-gold" },
+};
+
+const KEY = "vk:adminToken";
+
+export default function AdminPage() {
+  const [token, setToken] = useState("");
+  const [input, setInput] = useState("");
+  const [data, setData] = useState<AdminStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const t = sessionStorage.getItem(KEY);
+    if (t) setToken(t);
+  }, []);
+
+  const load = useCallback(async (t: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/stats", { headers: { "x-admin-token": t }, cache: "no-store" });
+      if (res.status === 401) {
+        setError("Wrong token.");
+        sessionStorage.removeItem(KEY);
+        setToken("");
+        return;
+      }
+      if (!res.ok) {
+        setError((await res.json().catch(() => ({}))).error ?? "Failed to load.");
+        return;
+      }
+      setData(await res.json());
+    } catch {
+      setError("Network error.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    load(token);
+    const i = setInterval(() => load(token), 10000);
+    return () => clearInterval(i);
+  }, [token, load]);
+
+  function submit() {
+    const t = input.trim();
+    if (!t) return;
+    sessionStorage.setItem(KEY, t);
+    setToken(t);
+  }
+
+  if (!token) {
+    return (
+      <div className="flex h-screen items-center justify-center p-6">
+        <div className="glass w-full max-w-sm rounded-2xl p-6">
+          <h1 className="text-xl font-bold text-white">🔒 VibeKilled Admin</h1>
+          <p className="mt-1 text-sm text-white/50">Enter the admin token.</p>
+          <input
+            type="password"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder="ADMIN_TOKEN"
+            className="mt-4 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white focus:border-electric/50 focus:outline-none"
+          />
+          {error && <p className="mt-2 text-sm text-coral">{error}</p>}
+          <button onClick={submit} className="mt-4 w-full rounded-xl bg-electric/20 py-2.5 text-sm font-bold text-electric hover:bg-electric/30">
+            Unlock
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const providers = Object.entries(data?.providers ?? {}).sort((a, b) => b[1] - a[1]);
+  const countries = Object.entries(data?.countries ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const days = Object.entries(data?.days ?? {}).sort((a, b) => a[0].localeCompare(b[0])).slice(-14);
+  const maxDay = Math.max(1, ...days.map(([, v]) => v));
+
+  return (
+    <div className="h-screen overflow-y-auto p-4 sm:p-6">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h1 className="text-2xl font-extrabold text-white">VibeKilled <span className="text-coral">Admin</span></h1>
+          <span className="text-xs text-white/40">{loading ? "refreshing…" : "live · 10s"}</span>
+        </div>
+        {error && <p className="mb-4 text-sm text-coral">{error}</p>}
+
+        {/* Top metrics */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <Metric label="👀 online now" value={data?.online ?? 0} color="text-emerald-400" />
+          <Metric label="🔥 live in chat" value={data?.liveInChat ?? 0} color="text-ember" />
+          <Metric label="👥 total devs" value={data?.totalUsers ?? 0} color="text-electric" />
+          <Metric label="☠ kills" value={data?.kills ?? 0} color="text-coral" />
+          <Metric label="⏳ down now" value={data?.active ?? 0} color="text-ember" />
+          <Metric label="✨ revived" value={data?.resurrections ?? 0} color="text-gold" />
+        </div>
+
+        {/* Prominent live activity (journey) */}
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <Card title="🌊 Live activity · the journey">
+            <div className="vk-scroll max-h-80 space-y-1 overflow-y-auto pr-1">
+              {data?.events?.map((e) => {
+                const m = EVENT_META[e.type];
+                return (
+                  <div key={e.id} className="flex items-center gap-2 border-b border-white/5 py-1.5 text-sm last:border-0">
+                    <span>{m.icon}</span>
+                    <span className="text-white/80">{e.name ?? "someone"}</span>
+                    <span className={m.color}>{m.label}</span>
+                    {e.country && <span className="text-white/30">{flagEmoji(e.country)}</span>}
+                    {e.text && <span className="truncate italic text-white/40">“{e.text}”</span>}
+                    <span className="ml-auto shrink-0 text-xs text-white/25">{rel(e.at)}</span>
+                  </div>
+                );
+              })}
+              {!data?.events?.length && <Empty />}
+            </div>
+          </Card>
+
+          <Card title="🔥 Campfire · live monitor">
+            <div className="vk-scroll max-h-80 space-y-2 overflow-y-auto pr-1">
+              {[...(data?.chat ?? [])].reverse().map((m) => (
+                <div key={m.id} className="text-sm">
+                  <span className="font-semibold text-white/70">{m.name}</span>
+                  <span className="ml-2 text-xs text-white/25">{rel(m.at)}</span>
+                  <p className="text-white/85">{m.text}</p>
+                </div>
+              ))}
+              {!data?.chat?.length && <Empty />}
+            </div>
+          </Card>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          {/* Providers */}
+          <Card title="Kills by agent">
+            {providers.map(([id, n]) => {
+              const p = provider(id);
+              const max = Math.max(1, ...providers.map(([, v]) => v));
+              return (
+                <div key={id} className="mb-2">
+                  <div className="mb-1 flex justify-between text-sm text-white/70">
+                    <span className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.glow }} />
+                      {p.label}
+                    </span>
+                    <span className="font-mono">{n}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full rounded-full" style={{ width: `${(n / max) * 100}%`, background: p.glow }} />
+                  </div>
+                </div>
+              );
+            })}
+            {!providers.length && <Empty />}
+          </Card>
+
+          {/* Countries */}
+          <Card title="Top countries">
+            <div className="grid grid-cols-2 gap-2">
+              {countries.map(([cc, n]) => (
+                <div key={cc} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
+                  <span>{flagEmoji(cc)} {cc}</span>
+                  <span className="font-mono text-white/70">{n}</span>
+                </div>
+              ))}
+            </div>
+            {!countries.length && <Empty />}
+          </Card>
+
+          {/* Daily kills */}
+          <Card title="Kills · last 14 days">
+            <div className="flex h-32 items-end gap-1">
+              {days.map(([d, v]) => (
+                <div key={d} className="flex flex-1 flex-col items-center justify-end" title={`${d}: ${v}`}>
+                  <div className="w-full rounded-t bg-coral/70" style={{ height: `${(v / maxDay) * 100}%` }} />
+                  <span className="mt-1 text-[8px] text-white/30">{d.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+            {!days.length && <Empty />}
+          </Card>
+
+          {/* Leaderboard */}
+          <Card title="Vibe Kings">
+            {data?.leaderboard?.map((r) => (
+              <div key={r.rank} className="flex items-center gap-3 border-b border-white/5 py-1.5 text-sm last:border-0">
+                <span className="w-5 text-white/40">{r.rank}</span>
+                <span className="flex-1 truncate text-white/80">{r.name}</span>
+                <span className="text-white/40">💛 {r.good4u} · 🫂 {r.sympathy}</span>
+                <span className="w-10 text-right font-mono text-electric">{r.score}</span>
+              </div>
+            ))}
+            {!data?.leaderboard?.length && <Empty />}
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="glass rounded-2xl p-4 text-center">
+      <div className={`font-mono text-3xl font-bold ${color}`}>{value.toLocaleString()}</div>
+      <div className="mt-1 text-[11px] uppercase tracking-wide text-white/45">{label}</div>
+    </div>
+  );
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="glass rounded-2xl p-4">
+      <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-white/60">{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+function Empty() {
+  return <p className="py-3 text-center text-sm text-white/30">No data yet.</p>;
+}
+
+function rel(at: number): string {
+  const s = Math.max(0, Math.floor((Date.now() - at) / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  return `${Math.floor(m / 60)}h`;
+}

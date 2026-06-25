@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { redis, hasRedis } from "./redis";
-import type { FeedEvent, FeedEventType, GlobalStats, Pin, ProviderId } from "./types";
+import type { AdminEvent, ChatMessage, FeedEvent, FeedEventType, GlobalStats, Pin, ProviderId } from "./types";
 import { achievementForCount, type Achievement } from "./achievements";
 
 // ── Keys ────────────────────────────────────────────────────────────────────
@@ -11,8 +11,33 @@ const K = {
   kills: "vk:stat:kills",
   resurrections: "vk:stat:resurrections",
   userLock: (uid: string) => `vk:user:${uid}:active`, // value=pinId, TTL=recovery
+  cooldown: (uid: string) => `vk:user:${uid}:cooldown`, // post-resurrection lockout
   userCount: (uid: string) => `vk:user:${uid}:count`,
+  users: "vk:users", // SET of all userIds ever
+  statProviders: "vk:stat:providers", // hash provider -> count
+  statCountries: "vk:stat:countries", // hash cc -> count
+  statDays: "vk:stat:days", // hash YYYY-MM-DD -> count
+  presence: "vk:presence", // zset sessionId -> last-seen ms
+  chatPresence: "vk:chatpresence", // zset userId -> last-seen ms (LIVE IN CHAT)
+  chat: "vk:chat", // list of JSON ChatMessage (Campfire of Hope)
+  events: "vk:events", // list of JSON AdminEvent (admin journey feed)
+  lbScore: "vk:lb:score", // zset userId -> good4u + sympathy (all-time)
+  lbName: "vk:lb:name", // hash userId -> latest alias
+  lbGood: "vk:lb:good4u", // hash userId -> good4u RECEIVED
+  lbSymp: "vk:lb:sympathy", // hash userId -> sympathy RECEIVED
+  // What a user has GIVEN to others (for action-based medals).
+  giveGood: "vk:give:good4u", // hash userId -> good4u given
+  giveSymp: "vk:give:sympathy", // hash userId -> sympathy given
+  giveShake: "vk:give:handshake", // hash userId -> handshakes given
+  comments: "vk:give:comments", // hash userId -> messages posted (last words + chat)
+  downMin: "vk:user:downmin", // hash userId -> total recovery minutes logged
+  streak: "vk:user:streak", // hash userId -> current daily streak
+  lastDay: "vk:user:lastday", // hash userId -> last active YYYY-MM-DD
 };
+
+const PRESENCE_TTL_MS = 60_000;
+// You can't claim a new wall for this long after your own resurrection.
+const COOLDOWN_SEC = 3 * 60 * 60;
 
 // Keep resurrected pins visible (for fireworks + feed) for a while after recovery.
 const GRACE_MS = 30 * 60 * 1000; // 30 min
@@ -31,9 +56,11 @@ function toPin(raw: Record<string, unknown> | null): Pin | null {
     recoverAt: Number(raw.recoverAt),
     name: String(raw.name),
     message: raw.message ? String(raw.message) : undefined,
+    country: raw.country ? String(raw.country) : undefined,
     good4u: Number(raw.good4u ?? 0),
     sympathy: Number(raw.sympathy ?? 0),
     views: Number(raw.views ?? 0),
+    handshake: Number(raw.handshake ?? 0),
     resurrected: Number(raw.resurrected ?? 0) === 1,
   };
 }
@@ -50,6 +77,13 @@ export async function getUserActivePin(userId: string): Promise<string | null> {
   return (await redis.get<string>(K.userLock(userId))) ?? null;
 }
 
+/** Seconds remaining on a user's post-resurrection cooldown (0 if none). */
+export async function getUserCooldown(userId: string): Promise<number> {
+  if (!hasRedis) return 0;
+  const ttl = await redis.ttl(K.cooldown(userId));
+  return typeof ttl === "number" && ttl > 0 ? ttl : 0;
+}
+
 // ── Create (the "Kill") ───────────────────────────────────────────────────────
 export interface CreatePinInput {
   userId: string;
@@ -60,6 +94,7 @@ export interface CreatePinInput {
   name: string;
   message?: string;
   place: string;
+  country?: string;
 }
 
 export interface CreatePinResult {
@@ -86,17 +121,22 @@ export async function createPin(input: CreatePinInput): Promise<CreatePinResult>
     recoverAt,
     name: input.name,
     message: input.message,
+    country: input.country,
     good4u: 0,
     sympathy: 0,
     views: 0,
+    handshake: 1, // a warm welcome — you're never alone behind the wall 🤝
     resurrected: false,
   };
 
   await redis.hset(K.pin(id), {
     ...pin,
     message: pin.message ?? "",
+    country: pin.country ?? "",
+    ownerId: input.userId, // private — used for the leaderboard, never exposed
     resurrected: 0,
   });
+  await redis.hset(K.lbName, { [input.userId]: input.name });
   await redis.expire(K.pin(id), Math.ceil((expireAt - now) / 1000));
   await redis.zadd(K.index, { score: expireAt, member: id });
 
@@ -106,15 +146,43 @@ export async function createPin(input: CreatePinInput): Promise<CreatePinResult>
   const killCount = await redis.incr(K.userCount(input.userId));
   const seq = await redis.incr(K.kills); // global running kill number → "Dev Down #N"
 
+  // Aggregate stats for the admin dashboard.
+  const today = new Date().toISOString().slice(0, 10);
+  await redis.sadd(K.users, input.userId);
+  await redis.hincrby(K.statProviders, input.provider, 1);
+  if (input.country) await redis.hincrby(K.statCountries, input.country, 1);
+  await redis.hincrby(K.statDays, today, 1);
+
+  // Per-user action stats for medals.
+  await redis.hincrby(K.downMin, input.userId, input.recoveryMinutes);
+  if (input.message) await redis.hincrby(K.comments, input.userId, 1);
+
+  // Daily streak: +1 if you were here yesterday, reset on a gap, keep same-day.
+  const last = await redis.hget<string>(K.lastDay, input.userId);
+  let streak = 1;
+  if (last) {
+    const diffDays = Math.round((Date.parse(today) - Date.parse(last)) / 86_400_000);
+    const cur = Number((await redis.hget(K.streak, input.userId)) ?? 1);
+    if (diffDays === 0) streak = cur;
+    else if (diffDays === 1) streak = cur + 1;
+    else streak = 1;
+  }
+  await redis.hset(K.streak, { [input.userId]: streak });
+  await redis.hset(K.lastDay, { [input.userId]: today });
+
   await pushFeed({
     type: "kill",
     name: input.name,
     provider: input.provider,
     place: input.place,
     at: now,
+    pinId: id,
+    message: input.message,
+    country: input.country,
     seq,
     minutes: input.recoveryMinutes,
   });
+  await adminLog({ type: "kill", name: input.name, provider: input.provider, country: input.country, text: input.message });
 
   return { pin, killCount, achievement: achievementForCount(killCount) };
 }
@@ -133,16 +201,29 @@ export async function listPins(): Promise<Pin[]> {
   ids.forEach((id) => pipe.hgetall(K.pin(id)));
   const rows = (await pipe.exec()) as Array<Record<string, unknown> | null>;
 
+  // Which owners are currently present (for the online / "back vibing" badge).
+  const present = new Set(
+    ((await redis.zrange<string[]>(K.presence, now - PRESENCE_TTL_MS, "+inf", { byScore: true })) ?? []).map(String),
+  );
+
   const pins: Pin[] = [];
   for (const row of rows) {
     const pin = toPin(row);
     if (!pin) continue;
-    // Lazy resurrection: celebrate the moment the timer crosses zero.
+    const owner = row?.ownerId ? String(row.ownerId) : undefined;
+    pin.online = owner ? present.has(owner) : false;
+    // Lazy resurrection: celebrate the moment the timer crosses zero, and gift
+    // an automatic Good4U so the comeback never goes uncelebrated.
     if (!pin.resurrected && pin.recoverAt <= now) {
       pin.resurrected = true;
+      pin.good4u += 1;
       await redis.hset(K.pin(pin.id), { resurrected: 1 });
+      await redis.hincrby(K.pin(pin.id), "good4u", 1);
       await redis.incr(K.resurrections);
-      await pushFeed({ type: "resurrection", name: pin.name, provider: pin.provider, place: "", at: now });
+      // 3h cooldown: no claiming a fresh wall right after coming back.
+      if (owner) await redis.set(K.cooldown(owner), 1, { ex: COOLDOWN_SEC });
+      await pushFeed({ type: "resurrection", name: pin.name, provider: pin.provider, place: "", at: now, pinId: pin.id });
+      await adminLog({ type: "resurrection", name: pin.name, provider: pin.provider });
     }
     pins.push(pin);
   }
@@ -151,26 +232,58 @@ export async function listPins(): Promise<Pin[]> {
 
 export async function getPin(id: string): Promise<Pin | null> {
   if (!hasRedis) return null;
-  return toPin(await redis.hgetall(K.pin(id)));
+  const raw = await redis.hgetall(K.pin(id));
+  const pin = toPin(raw);
+  if (pin && raw?.ownerId) {
+    const score = await redis.zscore(K.presence, String(raw.ownerId));
+    pin.online = typeof score === "number" && score > Date.now() - PRESENCE_TTL_MS;
+  }
+  return pin;
 }
 
 // ── Reactions (Good4U / Extend Sympathy / view) ──────────────────────────────
 const FIELD: Record<string, { field: keyof Pin; feed?: FeedEventType }> = {
   good4u: { field: "good4u", feed: "good4u" },
   sympathy: { field: "sympathy", feed: "sympathy" },
+  handshake: { field: "handshake", feed: "handshake" },
   view: { field: "views" },
 };
 
-export async function react(id: string, action: keyof typeof FIELD): Promise<Pin | null> {
+export async function react(id: string, action: keyof typeof FIELD, reactorId?: string): Promise<Pin | null> {
   if (!hasRedis) return null;
   const spec = FIELD[action];
   if (!spec) return null;
   const exists = await redis.exists(K.pin(id));
   if (!exists) return null;
   await redis.hincrby(K.pin(id), spec.field, 1);
+
+  // Feed the all-time leaderboard: good4u + sympathy build a user's vibe score.
+  if (action === "good4u" || action === "sympathy") {
+    const ownerId = await redis.hget<string>(K.pin(id), "ownerId");
+    if (ownerId) {
+      await redis.zincrby(K.lbScore, 1, ownerId);
+      await redis.hincrby(action === "good4u" ? K.lbGood : K.lbSymp, ownerId, 1);
+    }
+  }
+
+  // Track what the reactor GAVE (for action-based medals).
+  if (reactorId && action !== "view") {
+    const giveKey = action === "good4u" ? K.giveGood : action === "sympathy" ? K.giveSymp : K.giveShake;
+    await redis.hincrby(giveKey, reactorId, 1);
+  }
+
   const pin = await getPin(id);
   if (pin && spec.feed && action !== "view") {
-    await pushFeed({ type: spec.feed, name: pin.name, provider: pin.provider, place: "", at: Date.now() });
+    await pushFeed({
+      type: spec.feed,
+      name: pin.name,
+      provider: pin.provider,
+      place: "",
+      at: Date.now(),
+      pinId: pin.id,
+      country: pin.country,
+    });
+    await adminLog({ type: action as AdminEvent["type"], name: pin.name, provider: pin.provider, country: pin.country });
   }
   return pin;
 }
@@ -204,4 +317,239 @@ function safeParse(s: string): FeedEvent | null {
   } catch {
     return null;
   }
+}
+
+// ── Campfire of Hope (anonymous chat) ─────────────────────────────────────────
+const CHAT_MAX = 80;
+
+export async function postChat(msg: Omit<ChatMessage, "id" | "at">, userId?: string): Promise<ChatMessage> {
+  const full: ChatMessage = { ...msg, id: nanoid(8), at: Date.now() };
+  if (!hasRedis) return full;
+  await redis.lpush(K.chat, JSON.stringify(full));
+  await redis.ltrim(K.chat, 0, CHAT_MAX - 1);
+  // Only real users count toward medals + the admin journey (bots are silent there).
+  if (userId) {
+    await redis.hincrby(K.comments, userId, 1);
+    await adminLog({ type: "chat", name: msg.name, provider: msg.provider, text: msg.text });
+  }
+  return full;
+}
+
+// ── Campfire presence ("LIVE IN CHAT" = real humans) + ambient bots ──────────
+/** Register/refresh campfire presence; returns how many real humans are around the fire. */
+export async function joinCampfire(userId: string): Promise<number> {
+  if (!hasRedis) return 0;
+  const now = Date.now();
+  await redis.zadd(K.chatPresence, { score: now, member: userId });
+  await redis.zremrangebyscore(K.chatPresence, 0, now - PRESENCE_TTL_MS);
+  return Number((await redis.zcard(K.chatPresence)) ?? 0);
+}
+
+export async function chatLiveCount(): Promise<number> {
+  if (!hasRedis) return 0;
+  await redis.zremrangebyscore(K.chatPresence, 0, Date.now() - PRESENCE_TTL_MS);
+  return Number((await redis.zcard(K.chatPresence)) ?? 0);
+}
+
+export async function getChat(): Promise<ChatMessage[]> {
+  if (!hasRedis) return [];
+  const raw = (await redis.lrange<string | ChatMessage>(K.chat, 0, CHAT_MAX - 1)) ?? [];
+  return raw
+    .map((r) => {
+      if (typeof r !== "string") return r;
+      try {
+        return JSON.parse(r) as ChatMessage;
+      } catch {
+        return null;
+      }
+    })
+    .filter((x): x is ChatMessage => Boolean(x))
+    .reverse(); // oldest first for chat display
+}
+
+// ── Admin journey log ─────────────────────────────────────────────────────────
+const EVENTS_MAX = 150;
+
+export async function adminLog(ev: Omit<AdminEvent, "id" | "at">): Promise<void> {
+  if (!hasRedis) return;
+  const full: AdminEvent = { ...ev, id: nanoid(6), at: Date.now() };
+  await redis.lpush(K.events, JSON.stringify(full));
+  await redis.ltrim(K.events, 0, EVENTS_MAX - 1);
+}
+
+export async function getEvents(): Promise<AdminEvent[]> {
+  if (!hasRedis) return [];
+  const raw = (await redis.lrange<string | AdminEvent>(K.events, 0, EVENTS_MAX - 1)) ?? [];
+  return raw
+    .map((r) => {
+      if (typeof r !== "string") return r;
+      try {
+        return JSON.parse(r) as AdminEvent;
+      } catch {
+        return null;
+      }
+    })
+    .filter((x): x is AdminEvent => Boolean(x));
+}
+
+// ── Presence ("online now") ───────────────────────────────────────────────────
+export async function heartbeat(sessionId: string, country?: string): Promise<number> {
+  if (!hasRedis) return 0;
+  const now = Date.now();
+  const existed = await redis.zscore(K.presence, sessionId);
+  await redis.zadd(K.presence, { score: now, member: sessionId });
+  await redis.zremrangebyscore(K.presence, 0, now - PRESENCE_TTL_MS);
+  // First time we see this session → a "landed on the page" journey event.
+  if (existed === null || existed === undefined) {
+    await adminLog({ type: "land", country });
+  }
+  return Number((await redis.zcard(K.presence)) ?? 0);
+}
+
+export async function onlineCount(): Promise<number> {
+  if (!hasRedis) return 0;
+  await redis.zremrangebyscore(K.presence, 0, Date.now() - PRESENCE_TTL_MS);
+  return Number((await redis.zcard(K.presence)) ?? 0);
+}
+
+// ── Leaderboard (the "Vibe King") ─────────────────────────────────────────────
+export interface LeaderRow {
+  rank: number;
+  name: string;
+  score: number;
+  good4u: number;
+  sympathy: number;
+}
+
+export async function getLeaderboard(limit = 10): Promise<LeaderRow[]> {
+  if (!hasRedis) return [];
+  // Top scorers with their scores.
+  const raw = (await redis.zrange<(string | number)[]>(K.lbScore, 0, limit - 1, { rev: true, withScores: true })) ?? [];
+  if (!raw.length) return [];
+
+  const ids: string[] = [];
+  const scores: number[] = [];
+  for (let i = 0; i < raw.length; i += 2) {
+    ids.push(String(raw[i]));
+    scores.push(Number(raw[i + 1]));
+  }
+
+  const [names, goods, symps] = await Promise.all([
+    redis.hmget<Record<string, string>>(K.lbName, ...ids),
+    redis.hmget<Record<string, string>>(K.lbGood, ...ids),
+    redis.hmget<Record<string, string>>(K.lbSymp, ...ids),
+  ]);
+
+  return ids.map((id, i) => ({
+    rank: i + 1,
+    name: names?.[id] ?? "Anonymous Dev",
+    score: scores[i],
+    good4u: Number(goods?.[id] ?? 0),
+    sympathy: Number(symps?.[id] ?? 0),
+  }));
+}
+
+// ── Personal all-time stats (the "You" tab) ───────────────────────────────────
+export interface UserStats {
+  kills: number;
+  good4u: number; // received
+  sympathy: number; // received
+  score: number;
+  rank: number | null;
+  gaveGood4u: number;
+  gaveSympathy: number;
+  gaveHandshake: number;
+  comments: number;
+  downMinutes: number;
+  streak: number;
+}
+
+const ZERO_STATS: UserStats = {
+  kills: 0, good4u: 0, sympathy: 0, score: 0, rank: null,
+  gaveGood4u: 0, gaveSympathy: 0, gaveHandshake: 0, comments: 0, downMinutes: 0, streak: 0,
+};
+
+export async function getUserStats(userId: string): Promise<UserStats> {
+  if (!hasRedis || !userId) return { ...ZERO_STATS };
+  const [kills, good4u, sympathy, score, rank, gaveGood4u, gaveSympathy, gaveHandshake, comments, downMinutes, streak] =
+    await Promise.all([
+      redis.get<number>(K.userCount(userId)),
+      redis.hget<number>(K.lbGood, userId),
+      redis.hget<number>(K.lbSymp, userId),
+      redis.zscore(K.lbScore, userId),
+      redis.zrevrank(K.lbScore, userId),
+      redis.hget<number>(K.giveGood, userId),
+      redis.hget<number>(K.giveSymp, userId),
+      redis.hget<number>(K.giveShake, userId),
+      redis.hget<number>(K.comments, userId),
+      redis.hget<number>(K.downMin, userId),
+      redis.hget<number>(K.streak, userId),
+    ]);
+  return {
+    kills: Number(kills ?? 0),
+    good4u: Number(good4u ?? 0),
+    sympathy: Number(sympathy ?? 0),
+    score: Number(score ?? 0),
+    rank: rank === null || rank === undefined ? null : Number(rank) + 1,
+    gaveGood4u: Number(gaveGood4u ?? 0),
+    gaveSympathy: Number(gaveSympathy ?? 0),
+    gaveHandshake: Number(gaveHandshake ?? 0),
+    comments: Number(comments ?? 0),
+    downMinutes: Number(downMinutes ?? 0),
+    streak: Number(streak ?? 0),
+  };
+}
+
+// ── Admin dashboard ───────────────────────────────────────────────────────────
+export interface AdminStats {
+  online: number;
+  liveInChat: number;
+  totalUsers: number;
+  kills: number;
+  resurrections: number;
+  active: number;
+  providers: Record<string, number>;
+  countries: Record<string, number>;
+  days: Record<string, number>;
+  leaderboard: LeaderRow[];
+  events: AdminEvent[];
+  chat: ChatMessage[];
+}
+
+function toNumMap(h: Record<string, unknown> | null): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(h ?? {})) out[k] = Number(v);
+  return out;
+}
+
+export async function getAdminStats(): Promise<AdminStats> {
+  if (!hasRedis) {
+    return { online: 0, liveInChat: 0, totalUsers: 0, kills: 0, resurrections: 0, active: 0, providers: {}, countries: {}, days: {}, leaderboard: [], events: [], chat: [] };
+  }
+  const [online, liveInChat, totalUsers, base, providers, countries, days, leaderboard, events, chat] = await Promise.all([
+    onlineCount(),
+    chatLiveCount(),
+    redis.scard(K.users),
+    getStats(),
+    redis.hgetall(K.statProviders),
+    redis.hgetall(K.statCountries),
+    redis.hgetall(K.statDays),
+    getLeaderboard(20),
+    getEvents(),
+    getChat(),
+  ]);
+  return {
+    online,
+    liveInChat,
+    totalUsers: Number(totalUsers ?? 0),
+    kills: base.kills,
+    resurrections: base.resurrections,
+    active: base.active,
+    providers: toNumMap(providers),
+    countries: toNumMap(countries),
+    days: toNumMap(days),
+    leaderboard,
+    events,
+    chat,
+  };
 }

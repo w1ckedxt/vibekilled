@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { fetchFeed, fetchPin, fetchPins, fetchStats } from "./api";
+import { useEffect, useRef, useState } from "react";
+import { fetchChat, fetchFeed, fetchLeaderboard, fetchMe, fetchPin, fetchPins, fetchStats, sendHeartbeat } from "./api";
+import { getUserId } from "./identity";
 
 export function usePins() {
   return useQuery({ queryKey: ["pins"], queryFn: fetchPins, refetchInterval: 4000 });
@@ -14,6 +15,44 @@ export function useFeed() {
 
 export function useStats() {
   return useQuery({ queryKey: ["stats"], queryFn: fetchStats, refetchInterval: 6000 });
+}
+
+export function useLeaderboard() {
+  return useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard, refetchInterval: 8000 });
+}
+
+export function useChat(enabled = true) {
+  return useQuery({ queryKey: ["chat"], queryFn: () => fetchChat(getUserId()), refetchInterval: 4000, enabled });
+}
+
+export function useMe(userId: string | null) {
+  return useQuery({
+    queryKey: ["me", userId],
+    queryFn: () => fetchMe(userId as string),
+    enabled: Boolean(userId),
+    refetchInterval: 6000,
+  });
+}
+
+/** Heartbeat presence + live online count. One ping now, then every 25s. */
+export function usePresence(): number {
+  const [online, setOnline] = useState(0);
+  const idRef = useRef<string>("");
+  useEffect(() => {
+    idRef.current = getUserId();
+    let alive = true;
+    const beat = async () => {
+      const n = await sendHeartbeat(idRef.current);
+      if (alive) setOnline(n);
+    };
+    beat();
+    const t = setInterval(beat, 25000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  return online;
 }
 
 export function useMyPin(id: string | null) {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PROVIDER_LIST } from "@/lib/providers";
-import type { ProviderId } from "@/lib/types";
+import type { Pin, ProviderId } from "@/lib/types";
 import { createPin } from "@/lib/api";
 import {
   addUnlocked,
@@ -25,7 +25,7 @@ const PRESETS = [
   { label: "8h", m: 480 },
 ];
 
-export function KillModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: string) => void }) {
+export function KillModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (pin: Pin) => void }) {
   const qc = useQueryClient();
   const [provider, setProvider] = useState<ProviderId>("claude");
   const [minutes, setMinutes] = useState(60);
@@ -92,14 +92,15 @@ export function KillModal({ open, onClose, onCreated }: { open: boolean; onClose
           ttl: 7000,
         });
       }
-      onCreated(res.pin.id);
+      onCreated(res.pin);
       onClose();
     } catch (e: unknown) {
-      const err = e as { status?: number; message?: string };
+      const err = e as { status?: number; message?: string; data?: { message?: string } };
       setError(
-        err.status === 409
-          ? "You're still down — wait for your own resurrection before logging another."
-          : err.message || "Something broke. How fitting.",
+        err.data?.message ||
+          (err.status === 409
+            ? "You're still down — wait for your own resurrection before logging another."
+            : err.message || "Something broke. How fitting."),
       );
     } finally {
       setSubmitting(false);
@@ -191,7 +192,7 @@ export function KillModal({ open, onClose, onCreated }: { open: boolean; onClose
             <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${share ? "left-[22px]" : "left-0.5"}`} />
           </span>
         </button>
-        <p className="mb-4 text-[10px] leading-snug text-white/30">
+        <p className="mb-4 text-[12px] leading-snug text-white/30">
           🔒 We always estimate &amp; jitter locations. No accounts, no tracking — everything lives in your browser.
         </p>
 
