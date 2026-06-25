@@ -16,9 +16,9 @@ export function StatsBar() {
   const s = data ?? { kills: 0, resurrections: 0, active: 0 };
   return (
     <div className="glass pointer-events-auto flex items-center divide-x divide-white/10 rounded-full px-1.5 py-1.5">
-      <Stat value={s.kills} label="kills" color="text-coral" />
-      <Stat value={s.active} label="down now" color="text-ember" />
-      <Stat value={s.resurrections} label="revived" color="text-gold" />
+      <Stat value={s.kills} label="☠ kills" color="text-coral" />
+      <Stat value={s.active} label="⏳ down" color="text-ember" />
+      <Stat value={s.resurrections} label="✨ revived" color="text-gold" />
     </div>
   );
 }

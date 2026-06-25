@@ -60,8 +60,11 @@ export function LiveFeed() {
   return (
     <div className="glass pointer-events-auto flex max-h-[34vh] flex-col rounded-2xl sm:max-h-[42vh]">
       <div className="flex items-center gap-2 border-b border-white/8 px-4 py-2.5">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-coral" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/60">Global live feed</span>
+        <span className="text-sm leading-none">🪑</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/60">
+          Currently in the waiting room
+        </span>
+        <span className="vk-caret ml-auto font-mono text-xs text-coral">▍</span>
       </div>
       <div className="vk-scroll flex-1 space-y-1.5 overflow-y-auto px-2.5 py-2.5">
         {!events?.length && <div className="py-4 text-center text-xs text-white/30">All quiet… for now.</div>}

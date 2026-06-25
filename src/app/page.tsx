@@ -39,10 +39,14 @@ export default function Home() {
       <div className="pointer-events-none absolute inset-0 z-[600]">
         {/* Header */}
         <div className="absolute left-3 top-3">
-          <h1 className="text-lg font-extrabold tracking-tight text-white">
+          <h1 className="flex items-center gap-1.5 text-lg font-extrabold tracking-tight text-white">
+            <span aria-hidden>💀</span>
             VibeKilled<span className="text-coral">.rip</span>
+            <span className="vk-caret font-mono text-electric">▍</span>
           </h1>
-          <p className="hidden text-[11px] text-white/40 sm:block">Dev Down Detector</p>
+          <p className="hidden font-mono text-[11px] text-white/40 sm:block">
+            <span className="text-electric">&gt;</span> dev-down-detector
+          </p>
         </div>
 
         {/* Stats pill */}
