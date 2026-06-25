@@ -1,49 +1,51 @@
 # VibeKilled.rip — Dev Down Detector
 
-> Misery-loves-company map for developers who just hit the rate-limit wall.
-> "ja ik had ook limiet geraakt" — de hele wereld op één kaart.
+> Misery-loves-company hub voor developers die de rate-limit-muur raken.
+> Even samenkomen achter de muur, en weer door. 💀🔥
 
 ---
 
 ## STATUS — 25 jun 2026
-🟢 **LIVE** op https://vibekilled.vercel.app
-🌐 Custom domein `vibekilled.rip` gekoppeld aan Vercel — **wacht op DNS** (zie onder).
+🟢 **LIVE** op https://vibekilled.rip (+ vibekilled.vercel.app)
+Volledige feature-set draait in productie. Git gesynced & gepusht.
 
----
+## ACTIVE WORK / NEXT
+- [ ] Campfire-in-popup op mobiel finetunen (Leaflet popup + toetsenbord)
+- [ ] Evt. chat als mobiele sheet i.p.v. in de map-popup
+- [ ] Vercel WAF/BotID bij echte traffic-piek
+- [ ] Aparte test-database (nu deelt lokaal de prod-Redis)
 
 ## STACK
-| Laag | Keuze | Waarom |
-|------|-------|--------|
-| Framework | Next.js 16 (App Router) + TS | snelheid, SEO, Vercel-native |
-| Styling | Tailwind v4 | Deep Space dark theme |
-| Map | react-leaflet + CartoDB dark tiles | **gratis, geen API key** |
-| Database | **Upstash Redis** (Vercel Marketplace) | géén Supabase; ephemeral pins = TTL, GEO, atomische counters, schaalt naar miljoenen |
-| Data fetching | TanStack Query (polling) | live-genoeg, edge-cachebaar |
-| State | localStorage | geen accounts, privacy-first |
-| Deploy | Vercel (project `vibekilled`) | 1-click, Fluid Compute |
-
-## ARCHITECTUUR
-- **Redis-model** (`src/lib/store.ts`): pin = hash met TTL · `vk:pins` zset self-pruned op expiry · feed = capped list · counters via `HINCRBY`/`INCR` · per-user lock `vk:user:{id}:active`.
-- **Privacy** (`src/lib/geo.ts`): locatie ALTIJD ge-jitterd (~12km) + afgerond (2 decimalen); land-niveau labels via Vercel IP-headers. Toggle default UIT.
-- **Anti-abuse**: één actieve pin per user (server-enforced via TTL-lock = ingevulde hersteltijd).
-- **Achievements** (`src/lib/achievements.ts`): server-side afgeleid van kill-count → niet te faken. 1=First One!, 2=Again? Wow, 5, 10, 25.
-- **API**: `GET/POST /api/pins`, `GET /api/pins/:id`, `POST /api/pins/:id/react`, `GET /api/feed`, `GET /api/stats`.
+| Laag | Keuze |
+|------|-------|
+| Framework | Next.js 16 (App Router) + TS |
+| Styling | Tailwind v4 — "Deep Space" dark theme |
+| Map | react-leaflet + CartoDB dark tiles (gratis, geen key) |
+| Database | **Upstash Redis** (Vercel Marketplace) — géén Supabase |
+| Data | TanStack Query (polling) |
+| State | localStorage (geen accounts) |
+| Deploy | Vercel, **manueel via `vercel --prod`** (geen GitHub auto-deploy) |
 
 ## FEATURES (af)
-- ✅ Fullscreen Deep Space wereldkaart, glow-pins per provider (Claude/Gemini/GPT/Cursor/Other)
-- ✅ Kill-flow: "I've hit it :(" → provider + hersteltijd + optioneel bericht + locatie-toggle
-- ✅ Resurrection: gouden canvas-vuurwerk wanneer timer 0 raakt
-- ✅ Good4U + Extend Sympathy (client-side dedupe)
-- ✅ Global live feed met wisselende quip-cards ("Dev Down #42 has to touch grass for 2h") + agent-badge per card
-- ✅ Eigen session-panel: grote countdown + ontvangen sympathy/views + "X devs voelden je pijn"-toast + achievement-shelf
-- ✅ Stats-pill (kills / down now / revived)
-- ✅ Responsive: rechts-paneel op desktop, bottom-sheet op mobiel
+- Kaart met 💀/🎆 emoji-markers, death-burst + vuurwerk, zoom-to-area + Global View, provider-filter
+- Kill-flow + privacy-jitter + last words (gemodereerd: geen links/haat, scheldwoorden ok)
+- Anti-abuse: 1 actieve pin/user + 3u cooldown; rate limits (kills/reacties/chat)
+- Reacties: Sympathy (down) / Good4U (resurrected) / 🤝 handshake; spectaculaire links-FX
+- **Campfire of Hope**: chat vast aan je pin-kaartje, alleen tijdens timer, alleen vanaf join, "X warming up"
+- **Medals** (30+, klik=bubbel, Share position), **Vibe Kings** leaderboard, **Globe of Pain** feed (max 50)
+- **Admin** (`/admin`): online/live-in-chat, totals, providers, landen, grafiek, journey-feed, chat-monitor
+- Responsive (inklapbare mobiele sheet), 💀 favicon, "powered by CynicalSally"
 
-## NEXT STEPS
-- [ ] **DNS**: bij Hostnet voor `vibekilled.rip` zetten → `A @ 76.76.21.21` + `CNAME www cname.vercel-dns.com` (of nameservers naar Vercel)
-- [ ] OG-image / social preview kaartje
-- [ ] Provider-filter op de kaart
-- [ ] Bot/rate-limit bescherming op POST (Vercel BotID / WAF) voor de echte traffic-piek
+## ENV (Vercel + .env.local)
+- `KV_REST_API_URL` / `KV_REST_API_TOKEN` (Upstash, auto via Marketplace)
+- `ADMIN_TOKEN` (admin login) — in Vercel (prod/dev) + .env.local
+- `VIBEKILLED_DEV=1` / `NEXT_PUBLIC_VK_DEV=1` — **alleen lokaal** (.env.local), bypass lock + reset-knop
 
-## ENV (via Upstash Marketplace integratie — automatisch gezet)
-`KV_REST_API_URL`, `KV_REST_API_TOKEN` (code ondersteunt ook `UPSTASH_REDIS_REST_*`)
+## ARCHITECTUUR (kort)
+- `src/lib/store.ts` — alle Redis-ops (pins=hash+TTL, zset-index self-prune, feed/chat/events lists, counters, leaderboard, presence)
+- `src/lib/moderation.ts` — links strippen + haatspeech weigeren
+- `src/lib/achievements.ts` — medals over meerdere metrics
+- API: `/api/pins`(+`/[id]`,`/react`), `/feed`, `/stats`, `/leaderboard`, `/me`, `/chat`(+`/join`), `/presence`, `/admin/stats`
+
+## ARCHIEF
+- 25 jun 2026: van 0 → volledige live hub gebouwd (zie `/plan/session-2026-06-25.md`)
