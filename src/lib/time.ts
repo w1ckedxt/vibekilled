@@ -11,6 +11,16 @@ export function formatCountdown(ms: number): string {
   return `${pad(sec)}s`;
 }
 
+/** Compact "time left" for the campfire roster, e.g. "1h 12m left" / "8m left"
+ *  / "<1m left". Returns "" once the timer has run out (author has resurfaced). */
+export function formatLeft(ms: number): string {
+  if (ms <= 0) return "";
+  const m = Math.floor(ms / 60000);
+  if (m >= 60) return `${Math.floor(m / 60)}h ${m % 60}m left`;
+  if (m >= 1) return `${m}m left`;
+  return "<1m left";
+}
+
 /** Short relative label like "2m ago" / "just now". */
 export function timeAgo(at: number, now: number): string {
   const s = Math.max(0, Math.floor((now - at) / 1000));

@@ -62,6 +62,9 @@ export interface ChatMessage {
   provider: ProviderId;
   text: string;
   at: number;
+  /** Absolute epoch ms when the author's wall timer ends, so the campfire can
+   *  show each person's live "time left". Snapshot of their pin at post time. */
+  recoverAt?: number;
   /** Internal only — true for ambient bot chatter. Never surfaced to users. */
   bot?: boolean;
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getChat, getUserActivePin, postChat } from "@/lib/store";
+import { getChat, getPin, getUserActivePin, postChat } from "@/lib/store";
 import { moderateMessage, moderateName } from "@/lib/moderation";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { PROVIDERS } from "@/lib/providers";
@@ -66,11 +66,16 @@ export async function POST(req: NextRequest) {
   if (!modName.ok) return NextResponse.json({ error: "moderation", message: modName.reason }, { status: 422 });
   const name = modName.text || devName();
 
+  // Snapshot the author's remaining-wall time so everyone at the fire can see
+  // how long each person has left. `active` is their current pin id.
+  const authorPin = await getPin(active);
+
   const message = await postChat(
     {
       name,
       provider: PROVIDERS[provider] ? provider : "other",
       text,
+      recoverAt: authorPin?.recoverAt,
     },
     userId,
   );
