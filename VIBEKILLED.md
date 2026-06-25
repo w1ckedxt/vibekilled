@@ -10,8 +10,8 @@
 Volledige feature-set draait in productie. Git gesynced & gepusht.
 
 ## ACTIVE WORK / NEXT
+- [x] Map-herhaling bij uitzoomen opgelost (minZoom 3 + noWrap + maxBounds) — bevestigd "tight"
 - [ ] Op telefoon checken: ronde "I've been hit" CTA vs bottom-sheet; auto-pan-gevoel (zachter/uit?)
-- [ ] Map-herhaling bij uitzoomen: na deploy **hard refreshen** (Cmd+Shift+R) — minZoom 3 + noWrap
 - [ ] Campfire-in-popup op mobiel finetunen (Leaflet popup + toetsenbord)
 - [ ] Evt. chat als mobiele sheet i.p.v. in de map-popup
 - [ ] Vercel WAF/BotID bij echte traffic-piek
