@@ -67,13 +67,21 @@ export function LiveFeed() {
         {!events?.length && <div className="py-4 text-center text-xs text-white/30">All quiet… for now.</div>}
         {events?.map((ev) => {
           const r = render(ev);
+          const p = provider(ev.provider);
           return (
             <div
               key={ev.id}
               className={`vk-fadeup rounded-lg border-l-2 bg-white/[0.03] px-3 py-2 ${r.accent}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-white/30">{r.tag}</span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: p.glow, boxShadow: `0 0 6px ${p.glow}` }}
+                  />
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/45">{p.label}</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/25">· {r.tag}</span>
+                </span>
                 <span className="text-[10px] text-white/25">{timeAgo(ev.at, now)}</span>
               </div>
               <p className="mt-0.5 text-xs leading-snug text-white/80">{r.text}</p>
