@@ -12,6 +12,7 @@ import type { FeedEvent } from "@/lib/types";
 import type { FocusTarget } from "./MapView";
 import { FireworkIcon } from "./FireworkIcon";
 import { WallStatus } from "./WallStatus";
+import { patchNoteFor, type PatchNote } from "@/lib/lore";
 
 function dur(minutes?: number): string {
   if (!minutes) return "a while";
@@ -232,9 +233,35 @@ function FeedCard({
   );
 }
 
+// Satirical changelog card, interleaved into the feed for flavour. Not a real
+// event — no pin, no actions.
+function PatchNoteCard({ note }: { note: PatchNote }) {
+  return (
+    <div className="vk-fadeup rounded-xl border border-dashed border-white/12 bg-white/[0.02] px-2.5 py-2">
+      <div className="flex items-center gap-1.5">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/5 text-[12px]">📟</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Patch notes</span>
+        <span className="rounded bg-white/5 px-1.5 py-px font-mono text-[10px] text-white/45">{note.tag}</span>
+      </div>
+      <p className="mt-1 pl-[30px] text-[12px] leading-snug text-white/55">{note.line}</p>
+    </div>
+  );
+}
+
 export function LiveFeed({ myPinId, onFocus }: { myPinId: string | null; onFocus: (t: FocusTarget) => void }) {
   const { data: events } = useFeed();
   const now = useNow(5000);
+  const slow = Math.floor(now / 20000); // slow rotation for patch notes
+
+  // Real events with a satirical patch note slipped in every few rows.
+  const evs = events?.slice(0, 50) ?? [];
+  const rows: React.ReactNode[] = [];
+  evs.forEach((ev, i) => {
+    rows.push(<FeedCard key={ev.id} ev={ev} now={now} myPinId={myPinId} onFocus={onFocus} />);
+    if ((i + 1) % 5 === 0 && i < evs.length - 1) {
+      rows.push(<PatchNoteCard key={`pn-${i}`} note={patchNoteFor(Math.floor(i / 5), slow)} />);
+    }
+  });
 
   return (
     <div className="glass pointer-events-auto flex max-h-[34vh] flex-col rounded-2xl sm:max-h-[44vh]">
@@ -251,10 +278,8 @@ export function LiveFeed({ myPinId, onFocus }: { myPinId: string | null; onFocus
         </div>
       </div>
       <div className="vk-scroll flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
-        {!events?.length && <div className="py-4 text-center text-xs text-white/30">All quiet… for now.</div>}
-        {events?.slice(0, 50).map((ev) => (
-          <FeedCard key={ev.id} ev={ev} now={now} myPinId={myPinId} onFocus={onFocus} />
-        ))}
+        {!rows.length && <div className="py-4 text-center text-xs text-white/30">All quiet… for now.</div>}
+        {rows}
       </div>
     </div>
   );

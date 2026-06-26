@@ -8,6 +8,7 @@ import type { Pin } from "@/lib/types";
 import { provider } from "@/lib/providers";
 import { Fireworks } from "./Fireworks";
 import { PinPopup } from "./PinPopup";
+import { WallWeather } from "./WallWeather";
 import { reactPin } from "@/lib/api";
 
 export interface FocusTarget {
@@ -168,11 +169,13 @@ export default function MapView({
   myPinId,
   focusTarget,
   globalViewSeq = 0,
+  weather = false,
 }: {
   pins: Pin[];
   myPinId: string | null;
   focusTarget: FocusTarget | null;
   globalViewSeq?: number;
+  weather?: boolean;
 }) {
   const markerRefs = useRef(new Map<string, L.Marker>());
 
@@ -214,6 +217,8 @@ export default function MapView({
       {pins.map((pin) => (
         <PinMarker key={pin.id} pin={pin} mine={pin.id === myPinId} onRef={setMarkerRef} />
       ))}
+
+      {weather && <WallWeather pins={pins} />}
 
       <Fireworks pins={pins} />
       <FocusController focusTarget={focusTarget} pins={pins} markerRefs={markerRefs} />

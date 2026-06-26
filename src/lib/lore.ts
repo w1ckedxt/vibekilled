@@ -58,6 +58,30 @@ export function grassQuest(seed: string): string {
   return GRASS_QUESTS[hash(seed + "gq") % GRASS_QUESTS.length];
 }
 
+// Satirical provider "patch notes" — injected into the feed as flavour cards.
+export interface PatchNote {
+  tag: string;
+  line: string;
+}
+
+export const PATCH_NOTES: PatchNote[] = [
+  { tag: "claude v4.8.2", line: "Cooldowns are now 12% more dramatic. Fixed a bug where you almost shipped." },
+  { tag: "gpt 5.2.1", line: "Added four new ways to say “I can't help with that”." },
+  { tag: "gemini 3.1", line: "Now occasionally just vibes. Working as intended." },
+  { tag: "cursor", line: "It hung. Hotfix deployed: it now hangs faster." },
+  { tag: "the wall v∞", line: "Patience module updated. Yours, not ours." },
+  { tag: "claude v4.8.3", line: "Rate limits are now artisanal, small-batch, and locally sourced." },
+  { tag: "gpt 5.2.2", line: "Reduced apology latency to 0ms. You're welcome." },
+  { tag: "gemini 3.1.1", line: "Reduced hallucinations by hallucinating that we reduced them." },
+  { tag: "tokens", line: "Reserves rebalanced. Translation: you have fewer now." },
+  { tag: "the wall v∞.1", line: "Added a window. You still can't open it. Aesthetic only." },
+];
+
+/** Stable-but-rotating patch note for a feed slot. */
+export function patchNoteFor(slot: number, tick: number): PatchNote {
+  return PATCH_NOTES[(slot + tick) % PATCH_NOTES.length];
+}
+
 // Satirical, stats-driven patch notes for "the wall". Rotates by tick.
 export function wallStatus(active: number, kills: number, tick: number): string {
   const lines = [

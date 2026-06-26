@@ -54,6 +54,8 @@ export default function Home() {
   const [ctaDismissed, setCtaDismissed] = useState(false);
   // Bumped on every kill so the DROPPED celebration replays (with a diagnosis).
   const [drop, setDrop] = useState<{ seq: number; dx: string }>({ seq: 0, dx: "" });
+  // Satirical "Wall Weather" storm overlay toggle.
+  const [weatherOn, setWeatherOn] = useState(false);
   const didInitFocus = useRef(false);
 
   useEffect(() => {
@@ -127,7 +129,7 @@ export default function Home() {
 
   return (
     <main className="relative h-full w-full overflow-hidden">
-      <MapView pins={visiblePins} myPinId={myPinId} focusTarget={focus} globalViewSeq={globalSeq} />
+      <MapView pins={visiblePins} myPinId={myPinId} focusTarget={focus} globalViewSeq={globalSeq} weather={weatherOn} />
 
       <div className="pointer-events-none absolute inset-0 z-[600]">
         {/* Header */}
@@ -212,6 +214,14 @@ export default function Home() {
 
         {/* Map controls — back to your own campfire, or out to the whole world */}
         <div className="absolute bottom-6 right-3 flex flex-col items-end gap-2">
+          <button
+            onClick={() => setWeatherOn((w) => !w)}
+            className={`glass pointer-events-auto rounded-full px-3.5 py-2 text-[13px] font-semibold transition ${
+              weatherOn ? "text-electric" : "text-white/75 hover:text-white"
+            }`}
+          >
+            🌦️ Wall Weather{weatherOn ? " · on" : ""}
+          </button>
           {down && myPin && (
             <button
               onClick={() => focusOn({ id: myPin.id, lat: myPin.lat, lng: myPin.lng })}

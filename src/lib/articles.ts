@@ -89,6 +89,67 @@ export const ARTICLES: Article[] = [
       "Warning: prolonged use may cause side effects such as 'feeling slightly better' and 'remembering you have a body'. These are not bugs.",
     ],
   },
+  {
+    id: "sleep",
+    emoji: "😴",
+    title: "Sleep: The Original Dark Mode",
+    dek: "A nightly maintenance window for your meat server.",
+    readMins: 2,
+    body: [
+      "Sleep is a scheduled downtime where your brain garbage-collects, defragments memory, and quietly fixes three bugs you were stuck on.",
+      "It is the only deploy that goes better the less you think about it. Forcing it never works; you have to let the process exit gracefully.",
+      "Recommended runtime: ~8 hours. Running on 4 is technically possible, the same way prod is technically up while on fire.",
+      "Pro tip: the solution you've been hunting all day usually arrives at hour 7, unprompted, like an uninvited but correct code review.",
+    ],
+  },
+  {
+    id: "birds",
+    emoji: "🐦",
+    title: "Birds: Notifications You Can't Mute",
+    dek: "Outdoor push alerts with surprisingly good UX.",
+    readMins: 1,
+    body: [
+      "Birds are small, autonomous outdoor agents that emit audio notifications at dawn. There is no settings panel. There is no 'do not disturb'.",
+      "Unlike Slack, their pings carry no action items. You are not expected to reply. You are not on call. Revolutionary.",
+      "Some users report that listening for 60 seconds lowers cortisol more effectively than closing 11 browser tabs. Results may vary.",
+    ],
+  },
+  {
+    id: "cooking",
+    emoji: "🍳",
+    title: "Cooking: Compiling Food",
+    dek: "A build pipeline that ends in lunch.",
+    readMins: 2,
+    body: [
+      "Cooking is the process of taking raw inputs and, through heat, producing a runnable meal. Think of it as a build step you can eat.",
+      "The recipe is the documentation. Unlike most docs, it is mostly accurate, though it will lie to you about prep time.",
+      "Burning food is just a failed build with great error logging (smoke). Order takeout, refactor, try again tomorrow. Ship lunch.",
+    ],
+  },
+  {
+    id: "eye-contact",
+    emoji: "👀",
+    title: "How To: Make Eye Contact",
+    dek: "Establishing a connection without a handshake protocol.",
+    readMins: 2,
+    body: [
+      "Eye contact is a low-bandwidth, high-trust connection opened between two humans. No TLS. Surprisingly secure anyway.",
+      "Recommended duration: a few seconds. Holding it for 4 minutes will be interpreted as either love or a challenge to combat. Both are high-stakes.",
+      "If overwhelmed, you may glance at the bridge of the nose. The remote node cannot tell the difference. This is the only socially acceptable spoofing.",
+    ],
+  },
+  {
+    id: "weekend",
+    emoji: "🗓️",
+    title: "The Weekend: A Two-Day Maintenance Window",
+    dek: "Scheduled downtime you keep forgetting to take.",
+    readMins: 1,
+    body: [
+      "The weekend is a recurring 48-hour window where you are explicitly not on call for your own ambitions.",
+      "It exists so the rest of the week doesn't degrade into one long, undifferentiated standup. Use it to run literally any process that isn't work.",
+      "Working through it is allowed but unsupported. Side effects include burnout, resentment, and shipping worse code on Monday. Touch grass instead.",
+    ],
+  },
 ];
 
 export function articleById(id: string): Article | undefined {
