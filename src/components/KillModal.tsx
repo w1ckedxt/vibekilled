@@ -111,10 +111,11 @@ export function KillModal({ open, onClose, onCreated }: { open: boolean; onClose
 
   return (
     <div className="fixed inset-0 z-[900] flex items-end justify-center sm:items-center" role="dialog" aria-modal>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="glass vk-fadeup relative z-10 w-full max-w-md rounded-t-2xl p-5 sm:rounded-2xl">
+      <div className="vk-backdrop-in absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
+      <div className="glass vk-modal-in relative z-10 w-full max-w-md rounded-t-2xl border border-coral/20 p-5 shadow-[0_30px_80px_-20px_rgba(255,94,91,0.45)] sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold text-white">
+            <span className="text-2xl" aria-hidden>💀</span>
             You hit the wall <span className="text-coral">:(</span>
           </h2>
           <button onClick={onClose} className="text-white/40 hover:text-white" aria-label="Close">✕</button>

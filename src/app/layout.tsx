@@ -17,7 +17,9 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://vibekilled.rip"),
   openGraph: { title, description, type: "website", url: "https://vibekilled.rip" },
   twitter: { card: "summary_large_image", title, description },
-  icons: { icon: "/favicon.ico" },
+  // Use the app/icon.svg skull (the old /favicon.ico override pointed at a file
+  // that doesn't exist, so no favicon showed at all).
+  icons: { icon: "/icon.svg", shortcut: "/icon.svg", apple: "/icon.svg" },
 };
 
 export const viewport: Viewport = {

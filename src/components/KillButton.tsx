@@ -5,9 +5,19 @@ import { useRef, useState } from "react";
 const R = 47; // ring radius in the 100×100 viewBox
 const CIRC = 2 * Math.PI * R;
 
-// The main call-to-action: one big, round, dead-center button. Tapping it charges
-// a white ring around the rim ("vollopen"), then BAM — the kill modal opens.
-export function KillButton({ onClick }: { onClick: () => void }) {
+// The whole CTA lives inside ONE big red orb — no separate card. It floats off the
+// map with a deep coral glow, charges a white ring on tap ("vollopen"), then BAM →
+// the kill modal. An ✕ dismisses it so you can roam the map; a compact pill brings
+// the action back.
+export function KillButton({
+  variant = "hero",
+  onClick,
+  onDismiss,
+}: {
+  variant?: "hero" | "compact";
+  onClick: () => void;
+  onDismiss?: () => void;
+}) {
   const [firing, setFiring] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -15,57 +25,76 @@ export function KillButton({ onClick }: { onClick: () => void }) {
     if (firing) return;
     setFiring(true);
     timer.current = setTimeout(() => {
-      onClick(); // open the window once the ring has filled
-      setTimeout(() => setFiring(false), 60); // reset for next time
+      onClick();
+      setTimeout(() => setFiring(false), 60);
     }, 460);
   }
 
-  return (
-    <div className="pointer-events-none flex flex-col items-center gap-3">
-      {/* Playful but chill invite */}
-      <div className="glass pointer-events-auto max-w-[280px] rounded-2xl px-4 py-2.5 text-center">
-        <p className="text-[13px] font-bold leading-snug text-white">
-          Just got rate-limited? <span aria-hidden>💀</span>
-        </p>
-        <p className="mt-0.5 text-[11px] leading-snug text-white/55">
-          Drop it here, soak up the sympathy, and hand some back.
-        </p>
-      </div>
-
-      {/* The big round prominent CTA — skull over crossed swords */}
+  if (variant === "compact") {
+    return (
       <button
         onClick={fire}
         aria-label="I've been hit — log your kill"
-        className={`vk-pulse pointer-events-auto relative grid h-28 w-28 place-items-center rounded-full bg-coral text-black shadow-2xl ring-4 ring-coral/25 transition-transform hover:scale-105 active:scale-95 sm:h-32 sm:w-32 ${
-          firing ? "scale-105" : ""
-        }`}
+        className="vk-pulse pointer-events-auto flex items-center gap-2 rounded-full bg-coral px-4 py-2.5 text-sm font-black uppercase tracking-wide text-black shadow-[0_12px_40px_-8px_rgba(255,94,91,0.7)] transition hover:scale-105 active:scale-95"
       >
-        {/* White ring that "fills up" around the rim on tap */}
-        <svg className="pointer-events-none absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 100 100">
-          <circle
-            cx="50"
-            cy="50"
-            r={R}
-            fill="none"
-            stroke="white"
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeDasharray={CIRC}
-            strokeDashoffset={firing ? 0 : CIRC}
-            style={{ transition: firing ? "stroke-dashoffset 0.45s ease-in" : "none" }}
-          />
-        </svg>
-
-        <span className="flex flex-col items-center leading-none">
-          <span className="relative grid place-items-center" aria-hidden>
-            <span className="absolute text-[2.75rem] opacity-30">⚔️</span>
-            <span className="relative text-4xl drop-shadow-sm">💀</span>
-          </span>
-          <span className="mt-1.5 text-[10px] font-black uppercase tracking-wider">
-            I&apos;ve been hit
-          </span>
-        </span>
+        <span className="text-base" aria-hidden>💀</span>
+        I&apos;ve been hit
       </button>
-    </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={fire}
+      aria-label="I've been hit — log your kill"
+      className={`vk-float pointer-events-auto relative grid h-40 w-40 place-items-center rounded-full bg-gradient-to-b from-[#ff7a72] to-coral text-black shadow-[0_28px_70px_-12px_rgba(255,94,91,0.75)] ring-1 ring-white/20 transition-transform duration-200 hover:scale-[1.04] active:scale-95 sm:h-44 sm:w-44 ${
+        firing ? "scale-[1.06]" : ""
+      }`}
+    >
+      {/* soft pulsing halo so it reads as "alive" and lifted off the map */}
+      <span className="vk-pulse pointer-events-none absolute inset-0 rounded-full" />
+
+      {/* White ring that "fills up" around the rim on tap */}
+      <svg className="pointer-events-none absolute inset-1 h-[calc(100%-8px)] w-[calc(100%-8px)] -rotate-90" viewBox="0 0 100 100">
+        <circle
+          cx="50"
+          cy="50"
+          r={R}
+          fill="none"
+          stroke="white"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray={CIRC}
+          strokeDashoffset={firing ? 0 : CIRC}
+          style={{ transition: firing ? "stroke-dashoffset 0.45s ease-in" : "none" }}
+        />
+      </svg>
+
+      {/* Dismiss — tap away to roam the map */}
+      {onDismiss && (
+        <span
+          role="button"
+          aria-label="Dismiss"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss();
+          }}
+          className="absolute right-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-black/15 text-[13px] font-bold text-black/55 transition hover:bg-black/30 hover:text-black"
+        >
+          ✕
+        </span>
+      )}
+
+      <span className="flex flex-col items-center leading-none">
+        <span className="relative grid place-items-center" aria-hidden>
+          <span className="absolute text-[3.25rem] opacity-30">⚔️</span>
+          <span className="relative text-[2.75rem] drop-shadow-sm">💀</span>
+        </span>
+        <span className="mt-2 text-[12px] font-black uppercase tracking-wider">I&apos;ve been hit</span>
+        <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-black/45">
+          rate-limited? drop it
+        </span>
+      </span>
+    </button>
   );
 }

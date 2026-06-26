@@ -9,6 +9,7 @@ import type { Pin, ProviderId } from "@/lib/types";
 import type { FocusTarget } from "@/components/MapView";
 import { KillButton } from "@/components/KillButton";
 import { KillModal } from "@/components/KillModal";
+import { DropFlash } from "@/components/DropFlash";
 import { Leaderboard } from "@/components/Leaderboard";
 import { LiveFeed } from "@/components/LiveFeed";
 import { MedalsPanel } from "@/components/MedalsPanel";
@@ -47,6 +48,10 @@ export default function Home() {
   // Mobile panels start collapsed so the big "I've been hit" CTA is the first
   // thing in reach — the map + button shouldn't be buried under feeds.
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Tap the ✕ to stash the big CTA and roam the map; a compact pill brings it back.
+  const [ctaDismissed, setCtaDismissed] = useState(false);
+  // Bumped on every kill so the DROPPED celebration replays.
+  const [dropSeq, setDropSeq] = useState(0);
   const didInitFocus = useRef(false);
 
   useEffect(() => {
@@ -93,6 +98,7 @@ export default function Home() {
 
   function onCreated(pin: Pin) {
     setMyPinId(pin.id);
+    setDropSeq((s) => s + 1); // fire the DROPPED celebration
     focusOn({ id: pin.id, lat: pin.lat, lng: pin.lng });
   }
 
@@ -188,12 +194,18 @@ export default function Home() {
           )}
         </div>
 
-        {/* Kill button — dead-center & prominent; hidden only while your timer runs */}
-        {(!down || myResurrected) && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <KillButton onClick={() => setModalOpen(true)} />
-          </div>
-        )}
+        {/* Kill CTA — big & dead-center, or a compact pill once you tap it away.
+            Hidden only while your own timer is still running. */}
+        {(!down || myResurrected) &&
+          (ctaDismissed ? (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
+              <KillButton variant="compact" onClick={() => setModalOpen(true)} />
+            </div>
+          ) : (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <KillButton onClick={() => setModalOpen(true)} onDismiss={() => setCtaDismissed(true)} />
+            </div>
+          ))}
 
         {/* Map controls — back to your own campfire, or out to the whole world */}
         <div className="absolute bottom-6 right-3 flex flex-col items-end gap-2">
@@ -225,6 +237,7 @@ export default function Home() {
       </div>
 
       <KillModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={onCreated} />
+      <DropFlash seq={dropSeq} />
       <ReactionFX />
       <Toaster />
     </main>
