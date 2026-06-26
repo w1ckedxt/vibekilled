@@ -19,10 +19,9 @@ Volledige feature-set draait in productie. Git gesynced & gepusht.
 
 ## IDEAS / ICEBOX (toekomst, geen prioriteit)
 - Mini-game achter de muur tijdens je wachttijd: 🧱 **Tetris** of 🔥 **"Burn The Tokens"** (idle/clicker), naast of i.p.v. de campfire-chat.
-- **"LOLArticles"** — satirische how-to's: "What is grass/water/sky?", "What are social interactions?", overkoepelend **"How To: Outside"**. Droge dev-burnout-humor, past bij de touch-grass-vibe.
-- 🧾 **"Wall Receipt"** deelbare share-card per kill (`@vercel/og`) — top viral/lage kost.
-- 🌦️ **"Wall Weather"** heatmap-overlay op de kaart ("429 storm front over NYC").
-- Volledige brainstorm (incl. GPT-5.2 ideeën: Patch Notes, Recovery Pacts, Eulogy-gen, Bingo) in `/plan/session-2026-06-26.md`.
+- 🤝 **Anonymous Recovery Pacts** — tijdelijke 5-min squads van devs die nu down zijn (preset-emotes, TTL alles).
+- 🟩 **Globe of Pain Bingo** — dagelijkse bingo-kaart van dev-pijn die auto-invult; voltooid = share.
+- Volledige brainstorm (GPT-5.2) in `/plan/session-2026-06-26.md`. (Receipt, LOLReads, Wall Weather, Patch Notes, diagnose/eulogie → ✅ gebouwd.)
 
 ## STACK
 | Laag | Keuze |
@@ -47,7 +46,10 @@ Volledige feature-set draait in productie. Git gesynced & gepusht.
 - **Admin** (`/admin`): online/live-in-chat, totals, providers, landen, grafiek, journey-feed, chat-monitor
 - **Stealth admin chat**: host post als willekeurige/zelfgekozen dev-alias (geen "Sally"/badge); interne `staff`-vlag gestript uit publieke API; "you"-tag + 🎲 alias in dashboard
 - Responsive (inklapbare mobiele sheet), 💀 favicon, "powered by CynicalSally"
-- **Lore-laag**: deterministische absurde 🩺 diagnose + 🪦 eulogie per pin (`lib/lore.ts`), satirische live **Wall Status**-ticker in de feed, 🌱 **Touch-grass quest** per wachttijd (local badge), DROPPED-flash toont je "Cause", share-tekst draagt je diagnose
+- **Lore-laag**: deterministische absurde 🩺 diagnose + 🪦 eulogie per pin (`lib/lore.ts`), satirische live **Wall Status**-ticker, 🌱 **Touch-grass quest** per wachttijd, DROPPED-flash toont je "Cause", share-tekst draagt je diagnose
+- 🧾 **Dev Down Receipt** — deelbare kassabon-PNG per pin (`next/og`, `/api/receipt/[id]`)
+- 📚 **LOLReads** — 12 satirische "survive the outside" artikelen (entry → library-overlay → reader)
+- 🌦️ **Wall Weather** — toggle-bare storm-overlay (CircleMarker-bins) · 📟 satirische **Patch Notes** als feed-kaarten
 
 ## ENV (Vercel + .env.local)
 - `KV_REST_API_URL` / `KV_REST_API_TOKEN` (Upstash, auto via Marketplace)
