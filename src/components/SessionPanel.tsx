@@ -7,6 +7,7 @@ import { formatCountdown } from "@/lib/time";
 import { celebrate } from "@/lib/celebrate";
 import { ShareButton } from "./ShareButton";
 import { TouchGrassQuest } from "./TouchGrassQuest";
+import { LolReads } from "./LolReads";
 import { diagnosis } from "@/lib/lore";
 
 // Your own card while you're down: a big live countdown + share. Incoming love
@@ -49,6 +50,7 @@ export function SessionPanel({
   const resurrected = pin.resurrected || remaining <= 0;
 
   return (
+    <>
     <div className="glass pointer-events-auto rounded-2xl p-4">
       <div className="mb-2 flex items-center gap-2">
         <span className="h-3 w-3 rounded-full" style={{ background: meta.glow, boxShadow: `0 0 8px ${meta.glow}` }} />
@@ -96,5 +98,7 @@ export function SessionPanel({
         🧾 Get your receipt
       </a>
     </div>
+    {!resurrected && <LolReads title="LOLReads — how to survive outside" />}
+    </>
   );
 }

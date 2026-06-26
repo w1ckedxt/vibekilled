@@ -11,6 +11,7 @@ import type { FocusTarget } from "@/components/MapView";
 import { KillButton } from "@/components/KillButton";
 import { KillModal } from "@/components/KillModal";
 import { DropFlash } from "@/components/DropFlash";
+import { LolReads } from "@/components/LolReads";
 import { Leaderboard } from "@/components/Leaderboard";
 import { LiveFeed } from "@/components/LiveFeed";
 import { MedalsPanel } from "@/components/MedalsPanel";
@@ -253,6 +254,7 @@ function IntroCard({ online }: { online: number }) {
   useEffect(() => setNameLocal(getName()), []);
 
   return (
+    <>
     <div className="glass pointer-events-auto rounded-2xl p-4">
       {name && (
         <p className="mb-2 text-sm text-white/70">
@@ -272,5 +274,7 @@ function IntroCard({ online }: { online: number }) {
       </p>
       <ShareButton className="mt-3 w-full" />
     </div>
+    <LolReads title="LOLReads — survive the outside" limit={3} />
+    </>
   );
 }
