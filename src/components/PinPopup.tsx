@@ -51,25 +51,28 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
 
       <div className="mt-1 text-[13px] text-white/60">{pin.name}</div>
 
-      {/* Presence status */}
-      <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold">
-        {resurrected ? (
-          <span className="flex items-center gap-1 text-gold">
-            <FireworkIcon size={13} /> back from the dead
-          </span>
-        ) : pin.online ? (
-          <span className="text-emerald-400">🟢 currently online — suffering live</span>
-        ) : (
-          <span className="text-white/40">⚪ offline · back vibing</span>
-        )}
-      </div>
-
-      {/* Absurd "diagnosis" — deterministic per pin, so everyone sees the same. */}
-      {!resurrected && (
-        <div className="mt-1.5 flex items-center gap-1 text-[11px]">
-          <span className="text-white/35">🩺 Diagnosis:</span>
-          <span className="font-semibold text-coral/85">{diagnosis(pin.id)}</span>
-        </div>
+      {/* Presence + diagnosis are for OTHERS reading your stone — hidden on your
+          own card to keep it clean (you already know you're down). */}
+      {!isMine && (
+        <>
+          <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold">
+            {resurrected ? (
+              <span className="flex items-center gap-1 text-gold">
+                <FireworkIcon size={13} /> back from the dead
+              </span>
+            ) : pin.online ? (
+              <span className="text-emerald-400">🟢 currently online — suffering live</span>
+            ) : (
+              <span className="text-white/40">⚪ offline · back vibing</span>
+            )}
+          </div>
+          {!resurrected && (
+            <div className="mt-1.5 flex items-center gap-1 text-[11px]">
+              <span className="text-white/35">🩺 Diagnosis:</span>
+              <span className="font-semibold text-coral/85">{diagnosis(pin.id)}</span>
+            </div>
+          )}
+        </>
       )}
 
       {pin.message ? (
@@ -82,23 +85,27 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
         </div>
       )}
 
-      <div className="mt-2.5 rounded-lg bg-white/[0.05] px-2 py-2.5 text-center">
-        {resurrected ? (
-          <div className="flex flex-col items-center gap-1">
-            <span className="flex items-center gap-1.5 text-base font-bold text-gold">
-              <FireworkIcon size={18} /> Resurrected <FireworkIcon size={18} />
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-gold/55">
-              {timeAgo(pin.recoverAt, now)}
-            </span>
-          </div>
-        ) : (
-          <>
-            <div className="text-[12px] uppercase tracking-widest text-white/40">resurrects in</div>
-            <div className="font-mono text-xl font-bold text-ember tabular-nums">{formatCountdown(remaining)}</div>
-          </>
-        )}
-      </div>
+      {/* Countdown box. On your own card the Campfire below already shows the
+          time left, so we only show this for others (and for the revival cheer). */}
+      {(!isMine || resurrected) && (
+        <div className="mt-2.5 rounded-lg bg-white/[0.05] px-2 py-2.5 text-center">
+          {resurrected ? (
+            <div className="flex flex-col items-center gap-1">
+              <span className="flex items-center gap-1.5 text-base font-bold text-gold">
+                <FireworkIcon size={18} /> Resurrected <FireworkIcon size={18} />
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-gold/55">
+                {timeAgo(pin.recoverAt, now)}
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="text-[12px] uppercase tracking-widest text-white/40">resurrects in</div>
+              <div className="font-mono text-xl font-bold text-ember tabular-nums">{formatCountdown(remaining)}</div>
+            </>
+          )}
+        </div>
+      )}
 
       {!isMine && (
         <div className="mt-2.5">
