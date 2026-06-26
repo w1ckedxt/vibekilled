@@ -260,6 +260,14 @@ export async function react(
   if (!spec) return null;
   const exists = await redis.exists(K.pin(id));
   if (!exists) return null;
+
+  // No reacting to your own pin — you can't cheer/sympathize/"I hear you" yourself.
+  // (views are fine; they're anonymous and never hit the feed.)
+  if (reactorId && action !== "view") {
+    const owner = await redis.hget<string>(K.pin(id), "ownerId");
+    if (owner && owner === reactorId) return await getPin(id);
+  }
+
   await redis.hincrby(K.pin(id), spec.field, 1);
 
   // Feed the all-time leaderboard: good4u + sympathy build a user's vibe score.

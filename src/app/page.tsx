@@ -120,7 +120,7 @@ export default function Home() {
   function mobilePanel() {
     if (mobileTab === "kings") return <Leaderboard />;
     if (mobileTab === "medals") return <MedalsPanel userId={userId} />;
-    return <LiveFeed onFocus={focusOn} />;
+    return <LiveFeed myPinId={myPinId} onFocus={focusOn} />;
   }
 
   return (
@@ -166,7 +166,7 @@ export default function Home() {
         {/* RIGHT column (desktop): your card+campfire (or intro) + Globe of Pain */}
         <div className="absolute right-3 top-24 hidden w-[360px] flex-col gap-2 lg:flex">
           {down ? myCard : <IntroCard online={online} />}
-          <LiveFeed onFocus={focusOn} />
+          <LiveFeed myPinId={myPinId} onFocus={focusOn} />
         </div>
 
         {/* MOBILE bottom sheet — collapsible so the map stays usable */}

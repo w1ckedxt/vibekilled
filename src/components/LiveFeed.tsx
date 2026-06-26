@@ -109,7 +109,17 @@ function view(ev: FeedEvent): {
   }
 }
 
-function FeedCard({ ev, now, onFocus }: { ev: FeedEvent; now: number; onFocus: (t: FocusTarget) => void }) {
+function FeedCard({
+  ev,
+  now,
+  myPinId,
+  onFocus,
+}: {
+  ev: FeedEvent;
+  now: number;
+  myPinId: string | null;
+  onFocus: (t: FocusTarget) => void;
+}) {
   const p = provider(ev.provider);
   const v = view(ev);
   const targetFlag = flagEmoji(ev.country);
@@ -120,9 +130,10 @@ function FeedCard({ ev, now, onFocus }: { ev: FeedEvent; now: number; onFocus: (
 
   const pin = pins?.find((x) => x.id === ev.pinId);
   const canFocus = Boolean(pin);
+  const mine = Boolean(ev.pinId) && ev.pinId === myPinId;
 
-  // Only the downed dev's card gets the "I hear you" handshake.
-  const canShake = ev.type === "kill" && Boolean(ev.pinId);
+  // Only OTHER downed devs get the "I hear you" handshake — never your own card.
+  const canShake = ev.type === "kill" && Boolean(ev.pinId) && !mine;
   const liveCount = pin?.handshake ?? 0;
   const [optimistic, setOptimistic] = useState(0);
   const shownCount = Math.max(liveCount, optimistic);
@@ -172,6 +183,11 @@ function FeedCard({ ev, now, onFocus }: { ev: FeedEvent; now: number; onFocus: (
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.glow }} />
             </span>
             <span className={`text-[10px] font-bold uppercase tracking-widest ${v.tagTone}`}>{v.tag}</span>
+            {mine && (
+              <span className="rounded-full bg-white/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-white/70">
+                you
+              </span>
+            )}
             <span className="ml-auto shrink-0 text-[11px] text-white/30">{timeAgo(ev.at, now)}</span>
           </div>
 
@@ -215,7 +231,7 @@ function FeedCard({ ev, now, onFocus }: { ev: FeedEvent; now: number; onFocus: (
   );
 }
 
-export function LiveFeed({ onFocus }: { onFocus: (t: FocusTarget) => void }) {
+export function LiveFeed({ myPinId, onFocus }: { myPinId: string | null; onFocus: (t: FocusTarget) => void }) {
   const { data: events } = useFeed();
   const now = useNow(5000);
 
@@ -229,7 +245,7 @@ export function LiveFeed({ onFocus }: { onFocus: (t: FocusTarget) => void }) {
       <div className="vk-scroll flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
         {!events?.length && <div className="py-4 text-center text-xs text-white/30">All quiet… for now.</div>}
         {events?.slice(0, 50).map((ev) => (
-          <FeedCard key={ev.id} ev={ev} now={now} onFocus={onFocus} />
+          <FeedCard key={ev.id} ev={ev} now={now} myPinId={myPinId} onFocus={onFocus} />
         ))}
       </div>
     </div>
