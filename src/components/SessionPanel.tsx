@@ -85,6 +85,16 @@ export function SessionPanel({
         diagnosis={resurrected ? undefined : diagnosis(pin.id)}
         className="mt-3 w-full"
       />
+
+      {/* Your shareable "Dev Down Receipt" (generated image) */}
+      <a
+        href={`/api/receipt/${pin.id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-2 block w-full rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-center text-xs font-bold text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+      >
+        🧾 Get your receipt
+      </a>
     </div>
   );
 }
