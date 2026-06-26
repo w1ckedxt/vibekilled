@@ -5,14 +5,13 @@
 export function KillButton({ onClick }: { onClick: () => void }) {
   return (
     <div className="pointer-events-none flex flex-col items-center gap-3">
-      {/* Playful invite — sets the tone before the BAM */}
+      {/* Playful but chill invite */}
       <div className="glass pointer-events-auto max-w-[280px] rounded-2xl px-4 py-2.5 text-center">
         <p className="text-[13px] font-bold leading-snug text-white">
           Just got rate-limited? <span aria-hidden>💀</span>
         </p>
         <p className="mt-0.5 text-[11px] leading-snug text-white/55">
-          Drop it here, soak up the sympathy, fling some back — then{" "}
-          <span className="font-extrabold text-coral">BAM</span>.
+          Drop it here, soak up the sympathy, and hand some back.
         </p>
       </div>
 
