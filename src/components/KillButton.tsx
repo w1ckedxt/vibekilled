@@ -70,7 +70,7 @@ export function KillButton({
         />
       </svg>
 
-      {/* Dismiss — tap away to roam the map */}
+      {/* Dismiss — a clear solid badge on the rim; tap away to roam the map */}
       {onDismiss && (
         <span
           role="button"
@@ -79,7 +79,7 @@ export function KillButton({
             e.stopPropagation();
             onDismiss();
           }}
-          className="absolute right-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-black/15 text-[13px] font-bold text-black/55 transition hover:bg-black/30 hover:text-black"
+          className="absolute -right-1.5 -top-1.5 z-10 grid h-9 w-9 place-items-center rounded-full bg-[#150f12] text-[15px] font-bold text-white shadow-lg ring-2 ring-white/25 transition hover:scale-110 hover:bg-black"
         >
           ✕
         </span>
