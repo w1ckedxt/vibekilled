@@ -188,9 +188,9 @@ export default function Home() {
           )}
         </div>
 
-        {/* Kill button — persistent; hidden only while your timer is still running */}
+        {/* Kill button — dead-center & prominent; hidden only while your timer runs */}
         {(!down || myResurrected) && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <KillButton onClick={() => setModalOpen(true)} />
           </div>
         )}
