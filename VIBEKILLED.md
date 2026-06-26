@@ -20,7 +20,9 @@ Volledige feature-set draait in productie. Git gesynced & gepusht.
 ## IDEAS / ICEBOX (toekomst, geen prioriteit)
 - Mini-game achter de muur tijdens je wachttijd: 🧱 **Tetris** of 🔥 **"Burn The Tokens"** (idle/clicker), naast of i.p.v. de campfire-chat.
 - **"LOLArticles"** — satirische how-to's: "What is grass/water/sky?", "What are social interactions?", overkoepelend **"How To: Outside"**. Droge dev-burnout-humor, past bij de touch-grass-vibe.
-- Detail in `/plan/session-2026-06-26.md`.
+- 🧾 **"Wall Receipt"** deelbare share-card per kill (`@vercel/og`) — top viral/lage kost.
+- 🌦️ **"Wall Weather"** heatmap-overlay op de kaart ("429 storm front over NYC").
+- Volledige brainstorm (incl. GPT-5.2 ideeën: Patch Notes, Recovery Pacts, Eulogy-gen, Bingo) in `/plan/session-2026-06-26.md`.
 
 ## STACK
 | Laag | Keuze |
