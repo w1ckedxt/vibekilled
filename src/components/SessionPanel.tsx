@@ -98,7 +98,7 @@ export function SessionPanel({
         🧾 Get your receipt
       </a>
     </div>
-    {!resurrected && <LolReads title="LOLReads — how to survive outside" />}
+    {!resurrected && <LolReads />}
     </>
   );
 }

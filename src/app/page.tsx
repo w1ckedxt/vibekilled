@@ -284,7 +284,7 @@ function IntroCard({ online }: { online: number }) {
       </p>
       <ShareButton className="mt-3 w-full" />
     </div>
-    <LolReads title="LOLReads — survive the outside" limit={3} />
+    <LolReads />
     </>
   );
 }
