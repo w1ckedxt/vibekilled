@@ -249,7 +249,12 @@ const FIELD: Record<string, { field: keyof Pin; feed?: FeedEventType }> = {
   view: { field: "views" },
 };
 
-export async function react(id: string, action: keyof typeof FIELD, reactorId?: string): Promise<Pin | null> {
+export async function react(
+  id: string,
+  action: keyof typeof FIELD,
+  reactorId?: string,
+  actorCountry?: string,
+): Promise<Pin | null> {
   if (!hasRedis) return null;
   const spec = FIELD[action];
   if (!spec) return null;
@@ -282,6 +287,7 @@ export async function react(id: string, action: keyof typeof FIELD, reactorId?: 
       at: Date.now(),
       pinId: pin.id,
       country: pin.country,
+      actorCountry,
     });
     await adminLog({ type: action as AdminEvent["type"], name: pin.name, provider: pin.provider, country: pin.country });
   }

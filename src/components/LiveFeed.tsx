@@ -10,6 +10,7 @@ import { hasReacted, markReacted } from "@/lib/identity";
 import { timeAgo } from "@/lib/time";
 import type { FeedEvent } from "@/lib/types";
 import type { FocusTarget } from "./MapView";
+import { FireworkIcon } from "./FireworkIcon";
 
 function dur(minutes?: number): string {
   if (!minutes) return "a while";
@@ -27,49 +28,100 @@ function hash(s: string): number {
   return Math.abs(h);
 }
 
-// Empathetic-but-playful — the "aww, another one has to touch grass" vibe.
+// The downed dev's name, always the visual hero of a line.
+function Name({ children, tone = "text-white" }: { children: React.ReactNode; tone?: string }) {
+  return <span className={`font-extrabold ${tone}`}>{children}</span>;
+}
+
 const KILL_QUIPS = [
-  (e: FeedEvent) => `Aww, another one 🪦 ${e.name} has to touch grass for ${dur(e.minutes)}.`,
-  (e: FeedEvent) => `Poor ${e.name} just hit the wall. ${dur(e.minutes)} of silence ahead. 🫶`,
-  (e: FeedEvent) => `${e.name} got 429'd by ${provider(e.provider).label}. We've all been there. (${dur(e.minutes)})`,
-  (e: FeedEvent) => `Send thoughts & coffee ☕ — ${e.name} is down for ${dur(e.minutes)}.`,
-  (e: FeedEvent) => `Oof. ${e.name} needs ${dur(e.minutes)} to recover. Hang in there, friend.`,
-  (e: FeedEvent) => `Dev Down #${e.seq}: ${e.name} got grass-pilled for ${dur(e.minutes)} 🌱`,
-  (e: FeedEvent) => `RIP ${e.name}'s flow state. ${dur(e.minutes)} in the penalty box.`,
-  (e: FeedEvent) => `${e.name} entered the waiting room${e.place ? ` ${e.place}` : ""}. ${dur(e.minutes)} to go. 💔`,
+  (e: FeedEvent) => `Another one has to touch grass for ${dur(e.minutes)}. 🌱`,
+  (e: FeedEvent) => `${dur(e.minutes)} of silence ahead. We've all been there. 🫶`,
+  (e: FeedEvent) => `Got 429'd by ${provider(e.provider).label}. Hang in there.`,
+  (e: FeedEvent) => `Send thoughts & coffee ☕ — ${dur(e.minutes)} to go.`,
+  (e: FeedEvent) => `${dur(e.minutes)} in the penalty box. RIP the flow state.`,
+  (e: FeedEvent) => `Dev Down #${e.seq} · grass-pilled for ${dur(e.minutes)}.`,
 ];
 
-const RESURRECT_QUIPS = [
-  (e: FeedEvent) => `${e.name} rose from the dead 🎆`,
-  (e: FeedEvent) => `Resurrection complete: ${e.name} is back online 🔥`,
-  (e: FeedEvent) => `${e.name} touched enough grass. We're so back. 🌱✨`,
+const REVIVE_LINES = [
+  "clawed back to life",
+  "is back online",
+  "touched enough grass — we're so back",
+  "rose from the dead",
 ];
 
-function reactionLine(ev: FeedEvent): { text: string; accent: string; tag: string } {
+// One presentation spec per event type: a colored accent, a leading icon, a short
+// tag, and a headline that puts the NAME front and centre.
+function view(ev: FeedEvent): {
+  accent: string;
+  ring: string;
+  tag: string;
+  tagTone: string;
+  icon: React.ReactNode;
+  headline: React.ReactNode;
+} {
+  const name = <Name>{ev.name}</Name>;
   switch (ev.type) {
     case "resurrection":
-      return { text: RESURRECT_QUIPS[hash(ev.id) % RESURRECT_QUIPS.length](ev), accent: "border-l-gold", tag: "REVIVED" };
+      return {
+        accent: "border-l-gold/70 bg-gold/[0.06]",
+        ring: "bg-gold/10",
+        tag: "REVIVED",
+        tagTone: "text-gold",
+        icon: <FireworkIcon size={16} />,
+        headline: <>{name} {REVIVE_LINES[hash(ev.id) % REVIVE_LINES.length]}</>,
+      };
     case "good4u":
-      return { text: `Someone cheered ${ev.name}'s comeback 💛`, accent: "border-l-gold", tag: "LOVE" };
+      return {
+        accent: "border-l-gold/60 bg-gold/[0.04]",
+        ring: "bg-gold/10",
+        tag: "GOOD4U",
+        tagTone: "text-gold",
+        icon: <span className="text-[13px] leading-none">💛</span>,
+        headline: <>cheered {name}&rsquo;s comeback</>,
+      };
     case "sympathy":
-      return { text: `${ev.name} just got some sympathy 🫂`, accent: "border-l-emerald-400", tag: "💧" };
+      return {
+        accent: "border-l-emerald-400/60 bg-emerald-400/[0.04]",
+        ring: "bg-emerald-400/10",
+        tag: "SYMPATHY",
+        tagTone: "text-emerald-400",
+        icon: <span className="text-[13px] leading-none">🫂</span>,
+        headline: <>sent {name} some sympathy</>,
+      };
     case "handshake":
-      return { text: `Someone told ${ev.name}: I hear you 🤝`, accent: "border-l-electric", tag: "RESPECT" };
+      return {
+        accent: "border-l-electric/60 bg-electric/[0.04]",
+        ring: "bg-electric/10",
+        tag: "I HEAR YOU",
+        tagTone: "text-electric",
+        icon: <span className="text-[13px] leading-none">🤝</span>,
+        headline: <>told {name} they&rsquo;re not alone</>,
+      };
     default:
-      return { text: "", accent: "", tag: "" };
+      return {
+        accent: "border-l-coral/70 bg-coral/[0.07]",
+        ring: "bg-coral/15",
+        tag: "DEV DOWN",
+        tagTone: "text-coral",
+        icon: <span className="text-[13px] leading-none">💀</span>,
+        headline: <>{name} hit the wall</>,
+      };
   }
 }
 
 function FeedCard({ ev, now, onFocus }: { ev: FeedEvent; now: number; onFocus: (t: FocusTarget) => void }) {
   const p = provider(ev.provider);
-  const flag = flagEmoji(ev.country);
+  const v = view(ev);
+  const targetFlag = flagEmoji(ev.country);
+  const actorFlag = flagEmoji(ev.actorCountry);
+  const isReaction = ev.type === "good4u" || ev.type === "sympathy" || ev.type === "handshake";
   const qc = useQueryClient();
   const { data: pins } = usePins();
 
   const pin = pins?.find((x) => x.id === ev.pinId);
   const canFocus = Boolean(pin);
 
-  // Only the downed dev's card gets "I hear you".
+  // Only the downed dev's card gets the "I hear you" handshake.
   const canShake = ev.type === "kill" && Boolean(ev.pinId);
   const liveCount = pin?.handshake ?? 0;
   const [optimistic, setOptimistic] = useState(0);
@@ -95,63 +147,70 @@ function FeedCard({ ev, now, onFocus }: { ev: FeedEvent; now: number; onFocus: (
     }
   }
 
-  // Kill cards get a distinct, louder, empathetic look.
-  if (ev.type === "kill") {
-    return (
-      <div
-        onClick={focus}
-        className={`vk-fadeup rounded-xl border border-coral/25 bg-coral/[0.07] px-3 py-2.5 ${canFocus ? "cursor-pointer hover:border-coral/50" : ""}`}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5">
-            {flag && <span className="text-xs leading-none">{flag}</span>}
-            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.glow, boxShadow: `0 0 6px ${p.glow}` }} />
-            <span className="text-[11px] font-bold uppercase tracking-widest text-coral/80">💀 just dropped · {p.label}</span>
-          </span>
-          <span className="text-[12px] text-white/25">{timeAgo(ev.at, now)}</span>
-        </div>
-
-        <p className="mt-1 text-[13px] font-medium leading-snug text-white/90">{KILL_QUIPS[hash(ev.id) % KILL_QUIPS.length](ev)}</p>
-
-        {ev.message && (
-          <p className="mt-1 border-l-2 border-white/10 pl-2 text-[11px] italic leading-snug text-white/55">“{ev.message}”</p>
-        )}
-
-        <div className="mt-1.5 flex items-center gap-2">
-          {canShake && (
-            <button
-              onClick={shake}
-              disabled={shaken}
-              className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold transition ${
-                shaken ? "bg-electric/10 text-electric/60" : "bg-electric/15 text-electric hover:bg-electric/25"
-              }`}
-            >
-              🤝 I hear you{shownCount > 0 ? ` · ${shownCount}` : ""}
-            </button>
-          )}
-          {canFocus && <span className="ml-auto text-[12px] text-white/30">tap to visit on map →</span>}
-        </div>
-      </div>
-    );
-  }
-
-  // Reaction/resurrection cards: subtler.
-  const r = reactionLine(ev);
   return (
     <div
       onClick={focus}
-      className={`vk-fadeup rounded-lg border-l-2 bg-white/[0.03] px-3 py-2 ${r.accent} ${canFocus ? "cursor-pointer hover:bg-white/[0.06]" : ""}`}
+      className={`vk-fadeup group rounded-xl border-l-[3px] ${v.accent} px-2.5 py-2 transition ${
+        canFocus ? "cursor-pointer hover:brightness-125" : ""
+      }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5">
-          {flag && <span className="text-[11px] leading-none">{flag}</span>}
-          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.glow, boxShadow: `0 0 6px ${p.glow}` }} />
-          <span className="text-[11px] font-bold uppercase tracking-widest text-white/45">{p.label}</span>
-          <span className="text-[11px] font-bold uppercase tracking-widest text-white/25">· {r.tag}</span>
-        </span>
-        <span className="text-[12px] text-white/25">{timeAgo(ev.at, now)}</span>
+      <div className="flex items-start gap-2">
+        {/* Leading event icon in a soft colored chip */}
+        <span className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${v.ring}`}>{v.icon}</span>
+
+        <div className="min-w-0 flex-1">
+          {/* Meta line: who→whom (flags) · TAG ............ time */}
+          <div className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1 text-[12px] leading-none">
+              {isReaction && actorFlag && (
+                <>
+                  <span>{actorFlag}</span>
+                  <span className="text-white/30">→</span>
+                </>
+              )}
+              {targetFlag && <span>{targetFlag}</span>}
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.glow }} />
+            </span>
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${v.tagTone}`}>{v.tag}</span>
+            <span className="ml-auto shrink-0 text-[11px] text-white/30">{timeAgo(ev.at, now)}</span>
+          </div>
+
+          {/* Headline — the name is the hero */}
+          <p className="mt-0.5 text-[13px] leading-snug text-white/75">{v.headline}</p>
+
+          {/* Kill cards carry the empathetic quip + last words + handshake */}
+          {ev.type === "kill" && (
+            <>
+              <p className="mt-0.5 text-[12px] leading-snug text-white/45">{KILL_QUIPS[hash(ev.id) % KILL_QUIPS.length](ev)}</p>
+              {ev.message && (
+                <p className="mt-1 border-l-2 border-white/10 pl-2 text-[11px] italic leading-snug text-white/55">
+                  &ldquo;{ev.message}&rdquo;
+                </p>
+              )}
+            </>
+          )}
+
+          {/* Action row */}
+          <div className="mt-1.5 flex items-center gap-2">
+            {canShake && (
+              <button
+                onClick={shake}
+                disabled={shaken}
+                className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold transition ${
+                  shaken ? "bg-electric/10 text-electric/60" : "bg-electric/15 text-electric hover:bg-electric/25"
+                }`}
+              >
+                🤝 I hear you{shownCount > 0 ? ` · ${shownCount}` : ""}
+              </button>
+            )}
+            {canFocus && (
+              <span className="ml-auto text-[11px] font-medium text-white/30 transition group-hover:text-white/55">
+                visit on map →
+              </span>
+            )}
+          </div>
+        </div>
       </div>
-      <p className="mt-0.5 text-xs leading-snug text-white/80">{r.text}</p>
     </div>
   );
 }
@@ -165,9 +224,9 @@ export function LiveFeed({ onFocus }: { onFocus: (t: FocusTarget) => void }) {
       <div className="flex items-center gap-2 border-b border-white/8 px-4 py-2.5">
         <span className="text-sm leading-none">🌍</span>
         <span className="text-[11px] font-semibold uppercase tracking-wide text-white/60">Globe of Pain</span>
-        <span className="vk-caret ml-auto font-mono text-xs text-coral">▍</span>
+        <span className="ml-auto text-[10px] font-medium text-white/30">live · who&rsquo;s helping who</span>
       </div>
-      <div className="vk-scroll flex-1 space-y-1.5 overflow-y-auto px-2.5 py-2.5">
+      <div className="vk-scroll flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
         {!events?.length && <div className="py-4 text-center text-xs text-white/30">All quiet… for now.</div>}
         {events?.slice(0, 50).map((ev) => (
           <FeedCard key={ev.id} ev={ev} now={now} onFocus={onFocus} />

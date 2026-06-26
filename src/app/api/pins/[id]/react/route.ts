@@ -27,7 +27,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const rl = await rateLimit("react", clientIp(req.headers), 200, 60);
   if (!rl.ok) return NextResponse.json({ error: "rate" }, { status: 429 });
 
-  const pin = await react(id, action as "good4u" | "sympathy" | "handshake" | "view", reactorId || undefined);
+  // Coarse country of whoever reacted → lets the feed read "🇳🇱 → 🇧🇷".
+  const actorCountry = req.headers.get("x-vercel-ip-country") ?? undefined;
+  const pin = await react(
+    id,
+    action as "good4u" | "sympathy" | "handshake" | "view",
+    reactorId || undefined,
+    actorCountry,
+  );
   if (!pin) return NextResponse.json({ error: "not found" }, { status: 404 });
   return NextResponse.json({ pin });
 }

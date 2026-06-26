@@ -198,6 +198,23 @@ body {
 }
 .vk-caret { animation: vk-blink 1.1s step-end infinite; }
 
+/* Custom firework burst (our own resurrection icon — no emoji) */
+@keyframes vk-spark-core {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+.vk-spark-core { animation: vk-spark-core 1.6s ease-in-out infinite; transform-origin: 12px 12px; }
+@keyframes vk-spark-rays {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.9); }
+}
+.vk-spark-rays { animation: vk-spark-rays 1.6s ease-in-out infinite; transform-origin: 12px 12px; }
+@keyframes vk-spark-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+.vk-spark-twinkle { animation: vk-spark-twinkle 1.6s ease-in-out infinite; }
+
 /* Thin scrollbars for the feed */
 .vk-scroll::-webkit-scrollbar { width: 6px; }
 .vk-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 3px; }

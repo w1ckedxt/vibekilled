@@ -7,10 +7,11 @@ import { provider } from "@/lib/providers";
 import { flagEmoji } from "@/lib/geo";
 import { reactPin } from "@/lib/api";
 import { hasReacted, markReacted } from "@/lib/identity";
-import { formatCountdown } from "@/lib/time";
+import { formatCountdown, timeAgo } from "@/lib/time";
 import { useNow } from "@/lib/hooks";
 import { CountUp } from "./CountUp";
 import { Campfire } from "./Campfire";
+import { FireworkIcon } from "./FireworkIcon";
 
 export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
   const meta = provider(pin.provider);
@@ -50,9 +51,11 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
       <div className="mt-1 text-[13px] text-white/60">{pin.name}</div>
 
       {/* Presence status */}
-      <div className="mt-1 text-[11px] font-semibold">
+      <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold">
         {resurrected ? (
-          <span className="text-gold">🎆 back from the dead</span>
+          <span className="flex items-center gap-1 text-gold">
+            <FireworkIcon size={13} /> back from the dead
+          </span>
         ) : pin.online ? (
           <span className="text-emerald-400">🟢 currently online — suffering live</span>
         ) : (
@@ -68,7 +71,14 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
 
       <div className="mt-2.5 rounded-lg bg-white/[0.05] px-2 py-2.5 text-center">
         {resurrected ? (
-          <span className="text-base font-bold text-gold">🎆 Resurrected 🎆</span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="flex items-center gap-1.5 text-base font-bold text-gold">
+              <FireworkIcon size={18} /> Resurrected <FireworkIcon size={18} />
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-gold/55">
+              {timeAgo(pin.recoverAt, now)}
+            </span>
+          </div>
         ) : (
           <>
             <div className="text-[12px] uppercase tracking-widest text-white/40">resurrects in</div>

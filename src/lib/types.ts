@@ -42,8 +42,11 @@ export interface FeedEvent {
   pinId?: string;
   /** The downed dev's last words (moderated, kill events only). */
   message?: string;
-  /** ISO country code for the flag. */
+  /** ISO country code for the flag (the subject of the event). */
   country?: string;
+  /** ISO country code of who triggered a reaction (good4u/sympathy/handshake),
+   *  so the feed can show "🇳🇱 → 🇧🇷". Coarse, never precise. */
+  actorCountry?: string;
   /** Global sequential kill number (kill events only) → "Dev Down #42". */
   seq?: number;
   /** Estimated recovery minutes (kill events only) → quip duration. */
