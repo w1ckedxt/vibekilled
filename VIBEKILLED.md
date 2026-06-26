@@ -47,6 +47,7 @@ Volledige feature-set draait in productie. Git gesynced & gepusht.
 - **Admin** (`/admin`): online/live-in-chat, totals, providers, landen, grafiek, journey-feed, chat-monitor
 - **Stealth admin chat**: host post als willekeurige/zelfgekozen dev-alias (geen "Sally"/badge); interne `staff`-vlag gestript uit publieke API; "you"-tag + 🎲 alias in dashboard
 - Responsive (inklapbare mobiele sheet), 💀 favicon, "powered by CynicalSally"
+- **Lore-laag**: deterministische absurde 🩺 diagnose + 🪦 eulogie per pin (`lib/lore.ts`), satirische live **Wall Status**-ticker in de feed, 🌱 **Touch-grass quest** per wachttijd (local badge), DROPPED-flash toont je "Cause", share-tekst draagt je diagnose
 
 ## ENV (Vercel + .env.local)
 - `KV_REST_API_URL` / `KV_REST_API_TOKEN` (Upstash, auto via Marketplace)
