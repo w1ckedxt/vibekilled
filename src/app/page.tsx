@@ -212,29 +212,29 @@ export default function Home() {
             </div>
           ))}
 
-        {/* Map controls — back to your own campfire, or out to the whole world */}
-        <div className="absolute bottom-6 right-3 flex flex-col items-end gap-2">
+        {/* Map controls — one tidy segmented card */}
+        <div className="glass pointer-events-auto absolute bottom-6 right-3 flex w-[136px] flex-col divide-y divide-white/8 overflow-hidden rounded-2xl text-[12px] font-semibold">
           <button
             onClick={() => setWeatherOn((w) => !w)}
-            className={`glass pointer-events-auto rounded-full px-3.5 py-2 text-[13px] font-semibold transition ${
-              weatherOn ? "text-electric" : "text-white/75 hover:text-white"
+            className={`px-3.5 py-2 text-right transition ${
+              weatherOn ? "bg-electric/10 text-electric" : "text-white/70 hover:bg-white/5 hover:text-white"
             }`}
           >
-            🌦️ Wall Weather{weatherOn ? " · on" : ""}
+            🌦️ Weather
           </button>
           {down && myPin && (
             <button
               onClick={() => focusOn({ id: myPin.id, lat: myPin.lat, lng: myPin.lng })}
-              className="glass pointer-events-auto rounded-full px-3.5 py-2 text-[13px] font-semibold text-ember transition hover:brightness-110"
+              className="px-3.5 py-2 text-right text-ember transition hover:bg-white/5"
             >
-              🔥 My campfire
+              🔥 My fire
             </button>
           )}
           <button
             onClick={() => setGlobalSeq((s) => s + 1)}
-            className="glass pointer-events-auto rounded-full px-3.5 py-2 text-[13px] font-semibold text-white/75 transition hover:text-white"
+            className="px-3.5 py-2 text-right text-white/70 transition hover:bg-white/5 hover:text-white"
           >
-            🌍 Global View
+            🌍 Global
           </button>
         </div>
 

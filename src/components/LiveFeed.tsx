@@ -163,7 +163,7 @@ function FeedCard({
   return (
     <div
       onClick={focus}
-      className={`vk-fadeup group rounded-xl border-l-[3px] ${v.accent} px-2.5 py-2 transition ${
+      className={`vk-fadeup group rounded-lg border-l-[3px] ${v.accent} px-2.5 py-1.5 transition ${
         canFocus ? "cursor-pointer hover:brightness-125" : ""
       }`}
     >
@@ -209,7 +209,7 @@ function FeedCard({
           )}
 
           {/* Action row */}
-          <div className="mt-1.5 flex items-center gap-2">
+          <div className="mt-1 flex items-center gap-2">
             {canShake && (
               <button
                 onClick={shake}
@@ -237,7 +237,7 @@ function FeedCard({
 // event — no pin, no actions.
 function PatchNoteCard({ note }: { note: PatchNote }) {
   return (
-    <div className="vk-fadeup rounded-xl border border-dashed border-white/12 bg-white/[0.02] px-2.5 py-2">
+    <div className="vk-fadeup rounded-lg border border-dashed border-white/12 bg-white/[0.02] px-2.5 py-1.5">
       <div className="flex items-center gap-1.5">
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/5 text-[12px]">📟</span>
         <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Patch notes</span>
@@ -265,19 +265,19 @@ export function LiveFeed({ myPinId, onFocus }: { myPinId: string | null; onFocus
 
   return (
     <div className="glass pointer-events-auto flex max-h-[34vh] flex-col rounded-2xl sm:max-h-[44vh]">
-      <div className="border-b border-white/8 px-4 py-2">
+      <div className="border-b border-white/8 px-3.5 py-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm leading-none">🌍</span>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-white/60">Globe of Pain</span>
+          <span className="text-[13px] leading-none">🌍</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-white/70">Globe of Pain</span>
           <span className="vk-caret ml-auto font-mono text-xs text-coral">▍</span>
         </div>
         {/* Satirical, live "wall status" ticker */}
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/40">
-          <span className="text-[10px]">🩺</span>
+        <div className="mt-1 flex items-center gap-1 text-[10px] text-white/35">
+          <span>🩺</span>
           <WallStatus className="min-w-0 flex-1" />
         </div>
       </div>
-      <div className="vk-scroll flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
+      <div className="vk-scroll flex-1 space-y-1 overflow-y-auto px-2 py-2">
         {!rows.length && <div className="py-4 text-center text-xs text-white/30">All quiet… for now.</div>}
         {rows}
       </div>
