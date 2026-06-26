@@ -51,9 +51,6 @@ export function KillButton({
         firing ? "scale-[1.06]" : ""
       }`}
     >
-      {/* soft pulsing halo so it reads as "alive" and lifted off the map */}
-      <span className="vk-pulse pointer-events-none absolute inset-0 rounded-full" />
-
       {/* White ring that "fills up" around the rim on tap */}
       <svg className="pointer-events-none absolute inset-1 h-[calc(100%-8px)] w-[calc(100%-8px)] -rotate-90" viewBox="0 0 100 100">
         <circle

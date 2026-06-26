@@ -36,8 +36,8 @@ export function LolReads({ title = "LOLReads", limit }: { title?: string; limit?
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-[940] flex items-end justify-center sm:items-center" role="dialog" aria-modal>
-          <div className="vk-backdrop-in absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setOpen(null)} />
+        <div className="pointer-events-auto fixed inset-0 z-[940] flex items-end justify-center sm:items-center" role="dialog" aria-modal>
+          <div className="vk-backdrop-in absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setOpen(null)} />
           <div className="glass vk-modal-in relative z-10 flex max-h-[82vh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 p-5 sm:rounded-2xl">
             <div className="mb-1 flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
