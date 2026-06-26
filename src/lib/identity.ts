@@ -11,6 +11,7 @@ const KEYS = {
   shareLocation: "vk:shareLocation",
   reactions: "vk:reactions", // JSON: { [pinId]: ["good4u","sympathy"] }
   achievements: "vk:achievements", // JSON string[] of unlocked ids
+  quests: "vk:quests", // JSON string[] of pinIds whose touch-grass quest is done
 };
 
 function uid(): string {
@@ -103,4 +104,24 @@ export function addUnlocked(id: string) {
   const set = new Set(getUnlocked());
   set.add(id);
   localStorage.setItem(KEYS.achievements, JSON.stringify([...set]));
+}
+
+// ── Touch-grass quests (per pin, local-only) ──────────────────────────────────
+function readQuests(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(KEYS.quests) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+export function isQuestDone(pinId: string): boolean {
+  return readQuests().includes(pinId);
+}
+
+export function markQuestDone(pinId: string) {
+  const set = new Set(readQuests());
+  set.add(pinId);
+  localStorage.setItem(KEYS.quests, JSON.stringify([...set].slice(-50)));
 }

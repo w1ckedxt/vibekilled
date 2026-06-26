@@ -11,6 +11,7 @@ import { timeAgo } from "@/lib/time";
 import type { FeedEvent } from "@/lib/types";
 import type { FocusTarget } from "./MapView";
 import { FireworkIcon } from "./FireworkIcon";
+import { WallStatus } from "./WallStatus";
 
 function dur(minutes?: number): string {
   if (!minutes) return "a while";
@@ -237,10 +238,17 @@ export function LiveFeed({ myPinId, onFocus }: { myPinId: string | null; onFocus
 
   return (
     <div className="glass pointer-events-auto flex max-h-[34vh] flex-col rounded-2xl sm:max-h-[44vh]">
-      <div className="flex items-center gap-2 border-b border-white/8 px-4 py-2.5">
-        <span className="text-sm leading-none">🌍</span>
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/60">Globe of Pain</span>
-        <span className="ml-auto text-[10px] font-medium text-white/30">live · who&rsquo;s helping who</span>
+      <div className="border-b border-white/8 px-4 py-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm leading-none">🌍</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-white/60">Globe of Pain</span>
+          <span className="vk-caret ml-auto font-mono text-xs text-coral">▍</span>
+        </div>
+        {/* Satirical, live "wall status" ticker */}
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/40">
+          <span className="text-[10px]">🩺</span>
+          <WallStatus className="min-w-0 flex-1" />
+        </div>
       </div>
       <div className="vk-scroll flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
         {!events?.length && <div className="py-4 text-center text-xs text-white/30">All quiet… for now.</div>}

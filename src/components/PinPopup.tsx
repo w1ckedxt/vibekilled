@@ -12,6 +12,7 @@ import { useNow } from "@/lib/hooks";
 import { CountUp } from "./CountUp";
 import { Campfire } from "./Campfire";
 import { FireworkIcon } from "./FireworkIcon";
+import { diagnosis, eulogy } from "@/lib/lore";
 
 export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
   const meta = provider(pin.provider);
@@ -63,9 +64,21 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
         )}
       </div>
 
-      {pin.message && (
+      {/* Absurd "diagnosis" — deterministic per pin, so everyone sees the same. */}
+      {!resurrected && (
+        <div className="mt-1.5 flex items-center gap-1 text-[11px]">
+          <span className="text-white/35">🩺 Diagnosis:</span>
+          <span className="font-semibold text-coral/85">{diagnosis(pin.id)}</span>
+        </div>
+      )}
+
+      {pin.message ? (
         <div className="mt-2 border-l-2 border-coral/50 pl-2 text-[13px] italic leading-snug text-white/85">
           “{pin.message}”
+        </div>
+      ) : (
+        <div className="mt-2 border-l-2 border-white/10 pl-2 text-[12px] italic leading-snug text-white/45">
+          {eulogy(pin.name, pin.id)}
         </div>
       )}
 

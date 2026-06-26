@@ -6,15 +6,24 @@ import { toast } from "@/lib/toast";
 // Viral loop: share your demise / comeback. Uses the native share sheet on
 // mobile, falls back to an X (Twitter) compose intent on desktop. Never posts
 // automatically — the user confirms in the share UI.
-export function ShareButton({ resurrected = false, className = "" }: { resurrected?: boolean; className?: string }) {
+export function ShareButton({
+  resurrected = false,
+  diagnosis,
+  className = "",
+}: {
+  resurrected?: boolean;
+  diagnosis?: string;
+  className?: string;
+}) {
   const { data } = useStats();
 
   async function share() {
     const url = typeof window !== "undefined" ? window.location.origin : "https://vibekilled.rip";
     const down = data?.active ?? 0;
+    const dx = diagnosis ? ` Official diagnosis: ${diagnosis}.` : "";
     const text = resurrected
       ? `I survived the wall 🎆 I'm back from VibeKilled.rip — come watch ${down} devs who are still down:`
-      : `I just got VibeKilled 💀 ${down} devs are down right now. Misery loves company — see who else hit the wall:`;
+      : `I just got VibeKilled 💀${dx} ${down} devs are down right now. Misery loves company — see who else hit the wall:`;
 
     if (typeof navigator !== "undefined" && navigator.share) {
       try {

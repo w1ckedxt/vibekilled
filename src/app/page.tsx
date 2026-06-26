@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePins, usePresence, useStats } from "@/lib/hooks";
 import { clearReactions, getMyPin, getName, getUserId, setMyPin } from "@/lib/identity";
+import { diagnosis } from "@/lib/lore";
 import { PROVIDER_LIST } from "@/lib/providers";
 import type { Pin, ProviderId } from "@/lib/types";
 import type { FocusTarget } from "@/components/MapView";
@@ -50,8 +51,8 @@ export default function Home() {
   const [sheetOpen, setSheetOpen] = useState(false);
   // Tap the ✕ to stash the big CTA and roam the map; a compact pill brings it back.
   const [ctaDismissed, setCtaDismissed] = useState(false);
-  // Bumped on every kill so the DROPPED celebration replays.
-  const [dropSeq, setDropSeq] = useState(0);
+  // Bumped on every kill so the DROPPED celebration replays (with a diagnosis).
+  const [drop, setDrop] = useState<{ seq: number; dx: string }>({ seq: 0, dx: "" });
   const didInitFocus = useRef(false);
 
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function Home() {
 
   function onCreated(pin: Pin) {
     setMyPinId(pin.id);
-    setDropSeq((s) => s + 1); // fire the DROPPED celebration
+    setDrop((d) => ({ seq: d.seq + 1, dx: diagnosis(pin.id) })); // fire the DROPPED celebration
     focusOn({ id: pin.id, lat: pin.lat, lng: pin.lng });
   }
 
@@ -238,7 +239,7 @@ export default function Home() {
       </div>
 
       <KillModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={onCreated} />
-      <DropFlash seq={dropSeq} />
+      <DropFlash seq={drop.seq} diagnosis={drop.dx} />
       <ReactionFX />
       <Toaster />
     </main>

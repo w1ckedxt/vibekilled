@@ -6,6 +6,8 @@ import { provider } from "@/lib/providers";
 import { formatCountdown } from "@/lib/time";
 import { celebrate } from "@/lib/celebrate";
 import { ShareButton } from "./ShareButton";
+import { TouchGrassQuest } from "./TouchGrassQuest";
+import { diagnosis } from "@/lib/lore";
 
 // Your own card while you're down: a big live countdown + share. Incoming love
 // is celebrated spectacularly on the LEFT (ReactionFX), not as a status toast.
@@ -76,7 +78,13 @@ export function SessionPanel({
         </div>
       )}
 
-      <ShareButton resurrected={resurrected} className="mt-3 w-full" />
+      {!resurrected && <TouchGrassQuest pinId={pin.id} />}
+
+      <ShareButton
+        resurrected={resurrected}
+        diagnosis={resurrected ? undefined : diagnosis(pin.id)}
+        className="mt-3 w-full"
+      />
     </div>
   );
 }
