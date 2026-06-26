@@ -202,7 +202,8 @@ export default function Home() {
               <KillButton variant="compact" onClick={() => setModalOpen(true)} />
             </div>
           ) : (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            // Mobile: dead-center. Desktop: down at the bottom of the map.
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:top-auto sm:bottom-8 sm:translate-y-0">
               <KillButton onClick={() => setModalOpen(true)} onDismiss={() => setCtaDismissed(true)} />
             </div>
           ))}
