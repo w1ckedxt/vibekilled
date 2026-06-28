@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
   const lng = rawLng ? Number(rawLng) : NaN;
   const known = Number.isFinite(lat) && Number.isFinite(lng);
 
-  if (known) await ensureLocalAmbientPins(lat, lng, country);
+  // Seed nearby devs only when the client flags a genuinely new visitor (refreshes
+  // never re-spawn). The per-region throttle + global cap remain as backstops.
+  const seed = req.nextUrl.searchParams.get("seed") === "1";
+  if (known && seed) await ensureLocalAmbientPins(lat, lng, country);
 
   return NextResponse.json(
     { loc: known ? { lat: Number(lat.toFixed(1)), lng: Number(lng.toFixed(1)) } : null },

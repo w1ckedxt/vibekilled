@@ -20,10 +20,11 @@ export interface VisitorLoc {
 }
 
 /** Coarse self-location to center the map on arrival (null if the edge can't
- *  resolve it, e.g. on localhost). Also nudges the server to seed nearby devs. */
-export async function fetchWhereami(): Promise<VisitorLoc | null> {
+ *  resolve it, e.g. on localhost). Pass seed=true ONLY for a genuinely new
+ *  visitor — that's the single moment we drop ambient devs near them. */
+export async function fetchWhereami(seed: boolean): Promise<VisitorLoc | null> {
   try {
-    const res = await fetch("/api/whereami", { cache: "no-store" });
+    const res = await fetch(`/api/whereami${seed ? "?seed=1" : ""}`, { cache: "no-store" });
     return (await res.json()).loc ?? null;
   } catch {
     return null;

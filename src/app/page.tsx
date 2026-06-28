@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePins, usePresence, useStats } from "@/lib/hooks";
-import { clearReactions, getMyPin, getName, getUserId, setMyPin } from "@/lib/identity";
+import { clearReactions, getMyPin, getName, getUserId, setMyPin, takeFirstVisit } from "@/lib/identity";
 import { fetchWhereami } from "@/lib/api";
 import { diagnosis } from "@/lib/lore";
 import { PROVIDER_LIST } from "@/lib/providers";
@@ -91,7 +91,9 @@ export default function Home() {
   useEffect(() => {
     if (getMyPin()) return; // your own pin's auto-focus already centers the map
     let alive = true;
-    fetchWhereami().then((loc) => {
+    // Seed nearby devs only on a device's first-ever visit — refreshes just
+    // re-center the map, they never spawn more bots.
+    fetchWhereami(takeFirstVisit()).then((loc) => {
       if (alive && loc) setArriveLoc(loc);
     });
     return () => {

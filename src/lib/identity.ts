@@ -12,7 +12,17 @@ const KEYS = {
   reactions: "vk:reactions", // JSON: { [pinId]: ["good4u","sympathy"] }
   achievements: "vk:achievements", // JSON string[] of unlocked ids
   quests: "vk:quests", // JSON string[] of pinIds whose touch-grass quest is done
+  visited: "vk:visited", // set once this device has been welcomed (gates seeding)
 };
+
+/** True exactly once per device — the first time it's ever called. Used so a
+ *  brand-new visitor seeds nearby ambient devs, but refreshes never re-spawn. */
+export function takeFirstVisit(): boolean {
+  if (typeof window === "undefined") return false;
+  if (localStorage.getItem(KEYS.visited)) return false;
+  localStorage.setItem(KEYS.visited, "1");
+  return true;
+}
 
 function uid(): string {
   // Small, dependency-free id; identity is non-sensitive.
