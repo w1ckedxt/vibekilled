@@ -2,8 +2,8 @@
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { Pin } from "@/lib/types";
 import { provider } from "@/lib/providers";
 import { Fireworks } from "./Fireworks";
@@ -26,12 +26,24 @@ export interface ArriveTarget {
   n: number;
 }
 
+// How recently a kill / resurrection counts as "fresh" — only fresh pins get the
+// drop-in + a brief (finite) attention ring. Everything else renders as a static
+// halo, so thousands of idle pins on screen cost zero animation.
+const FRESH_KILL_MS = 15_000;
+const FRESH_RISE_MS = 30_000;
+
 function makeIcon(pin: Pin): L.DivIcon {
   const meta = provider(pin.provider);
   const glow = pin.resurrected ? "#ffd166" : meta.glow;
   const emoji = pin.resurrected ? "🎆" : "💀";
+  const now = Date.now();
+  const freshKill = !pin.resurrected && now - pin.createdAt < FRESH_KILL_MS;
+  const freshRise = pin.resurrected && now - pin.recoverAt < FRESH_RISE_MS;
   const container = `vk-pin${pin.resurrected ? " vk-pin-resurrected" : ""}`;
-  const glowCls = `vk-pin-glow${pin.resurrected ? "" : " vk-pin-new"}`;
+  // Pulse ring only on fresh kills/resurrections (self-stopping); drop-in only on
+  // a fresh kill. Backdated ambient devs are never "fresh", so they arrive calm.
+  const glowCls =
+    "vk-pin-glow" + (freshKill || freshRise ? " vk-pin-pulse" : "") + (freshKill ? " vk-pin-new" : "");
   return L.divIcon({
     className: container,
     html: `<span class="${glowCls}" style="color:${glow};background:radial-gradient(circle, ${glow}55 0%, transparent 70%)"></span><span class="vk-pin-emoji">${emoji}</span>`,
@@ -39,6 +51,31 @@ function makeIcon(pin: Pin): L.DivIcon {
     iconAnchor: [10, 10],
     popupAnchor: [0, -12],
   });
+}
+
+// Render only what's in view, capped, so the DOM never holds thousands of markers
+// at once. Your own pin and any focused pin are always kept (their cards must work).
+const RENDER_CAP = 400;
+
+function cullPins(
+  pins: Pin[],
+  bounds: L.LatLngBounds | null,
+  myPinId: string | null,
+  focusId: string | null,
+): Pin[] {
+  let arr = bounds ? pins.filter((p) => bounds.contains([p.lat, p.lng])) : pins;
+  if (arr.length > RENDER_CAP) arr = arr.slice(0, RENDER_CAP); // pins arrive newest-first
+  const ids = new Set(arr.map((p) => p.id));
+  for (const must of [myPinId, focusId]) {
+    if (must && !ids.has(must)) {
+      const p = pins.find((x) => x.id === must);
+      if (p) {
+        arr = [...arr, p];
+        ids.add(must);
+      }
+    }
+  }
+  return arr;
 }
 
 // One marker. Memoized so an unchanged pin never re-renders on a poll — that's
@@ -118,45 +155,9 @@ function FocusController({
   return null;
 }
 
-// Gently drifts the map toward freshly-arrived kills so the world feels alive —
-// pan only, never opening a popup (so it can't steal your open card). Disabled
-// while you're down: your own campfire is always the boss. Skips the initial
-// batch so it only follows pins that land AFTER you're watching.
-function AutoFollowController({
-  pins,
-  enabled,
-  myPinId,
-}: {
-  pins: Pin[];
-  enabled: boolean;
-  myPinId: string | null;
-}) {
-  const map = useMap();
-  const seen = useRef<Set<string>>(new Set());
-  const primed = useRef(false);
-
-  useEffect(() => {
-    const markAll = () => pins.forEach((p) => seen.current.add(p.id));
-    if (!primed.current) {
-      markAll(); // remember what's already here; don't fly to the opening batch
-      primed.current = true;
-      return;
-    }
-    if (!enabled) {
-      markAll();
-      return;
-    }
-    const fresh = pins.find((p) => p.id !== myPinId && !seen.current.has(p.id));
-    markAll();
-    if (fresh) {
-      // "Just enough": nudge closer if zoomed out, but never zoom back out.
-      const zoom = Math.max(map.getZoom(), 4);
-      map.flyTo([fresh.lat, fresh.lng], zoom, { duration: 2.2 });
-    }
-  }, [pins, enabled, myPinId, map]);
-
-  return null;
-}
+// (Auto-follow removed: now that ambient devs keep the map populated, a controller
+// that flew to every freshly-seen pin chased the view around every few seconds and
+// made the map unusable. A lively, stable map is the better trade.)
 
 // On arrival, eases the map to the visitor's own region (from coarse IP geo) so
 // they open on a populated neighbourhood instead of the whole globe. One-time;
@@ -169,6 +170,15 @@ function ArriveController({ arriveAt }: { arriveAt: ArriveTarget | null }) {
     flown.current = arriveAt.n;
     map.flyTo([arriveAt.lat, arriveAt.lng], 5, { duration: 1.8 });
   }, [arriveAt, map]);
+  return null;
+}
+
+// Reports the visible bounds up so the parent can render only on-screen markers.
+function BoundsTracker({ onChange }: { onChange: (b: L.LatLngBounds) => void }) {
+  const map = useMapEvents({
+    moveend: () => onChange(map.getBounds()),
+    zoomend: () => onChange(map.getBounds()),
+  });
   return null;
 }
 
@@ -201,12 +211,20 @@ export default function MapView({
   weather?: boolean;
 }) {
   const markerRefs = useRef(new Map<string, L.Marker>());
+  const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
 
   // Stable ref-setter so memoized markers never re-render just to rebind a ref.
   const setMarkerRef = useCallback((id: string, m: L.Marker | null) => {
     if (m) markerRefs.current.set(id, m);
     else markerRefs.current.delete(id);
   }, []);
+
+  // Only mount markers that are actually on screen (capped) — keeps the DOM light
+  // even with thousands of pins live. Weather/Fireworks still see every pin.
+  const rendered = useMemo(
+    () => cullPins(pins, bounds, myPinId, focusTarget?.id ?? null),
+    [pins, bounds, myPinId, focusTarget],
+  );
 
   return (
     <MapContainer
@@ -237,16 +255,16 @@ export default function MapView({
         maxZoom={20}
       />
 
-      {pins.map((pin) => (
+      {rendered.map((pin) => (
         <PinMarker key={pin.id} pin={pin} mine={pin.id === myPinId} onRef={setMarkerRef} />
       ))}
 
       {weather && <WallWeather pins={pins} />}
 
       <Fireworks pins={pins} />
+      <BoundsTracker onChange={setBounds} />
       <FocusController focusTarget={focusTarget} pins={pins} markerRefs={markerRefs} />
       <ArriveController arriveAt={arriveTarget} />
-      <AutoFollowController pins={pins} enabled={!myPinId} myPinId={myPinId} />
       <GlobalViewController seq={globalViewSeq} />
     </MapContainer>
   );

@@ -16,6 +16,9 @@ interface Spark {
 
 const GOLD = ["#ffd166", "#ffe29a", "#ffb703", "#fff3c4"];
 const CORAL = ["#ff5e5b", "#ff8a76", "#ffb3a0", "#b91c1c"];
+// Never fire more than a handful of bursts in a single poll, so a batch of new
+// pins can't storm the canvas.
+const MAX_BURSTS_PER_UPDATE = 5;
 
 // Canvas bursts on the map: a coral "death" puff when a kill appears, and a
 // golden firework when someone resurrects. Mounted inside MapContainer so it
@@ -39,18 +42,30 @@ export function Fireworks({ pins }: { pins: Pin[] }) {
       primed.current = true;
       return;
     }
+    // Cap bursts per update + only celebrate what's on screen, so a batch of new
+    // pins (or a busy moment) can never storm the canvas.
+    const size = map.getSize();
+    const onScreen = (pt: L.Point) => pt.x >= 0 && pt.y >= 0 && pt.x <= size.x && pt.y <= size.y;
+    let bursts = 0;
     for (const p of pins) {
+      if (bursts >= MAX_BURSTS_PER_UPDATE) break;
       if (!seenKill.current.has(p.id)) {
         seenKill.current.add(p.id);
         if (!p.resurrected) {
           const pt = map.latLngToContainerPoint([p.lat, p.lng]);
-          burst(sparks.current, pt.x, pt.y, CORAL, "death");
+          if (onScreen(pt)) {
+            burst(sparks.current, pt.x, pt.y, CORAL, "death");
+            bursts++;
+          }
         }
       }
       if (p.resurrected && !seenRise.current.has(p.id)) {
         seenRise.current.add(p.id);
         const pt = map.latLngToContainerPoint([p.lat, p.lng]);
-        burst(sparks.current, pt.x, pt.y, GOLD, "rise");
+        if (onScreen(pt)) {
+          burst(sparks.current, pt.x, pt.y, GOLD, "rise");
+          bursts++;
+        }
       }
     }
   }, [pins, map]);

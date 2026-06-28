@@ -112,16 +112,19 @@ body {
   border-radius: 50%;
   z-index: 1;
 }
+/* Static halo by default — no animation, so thousands of idle pins are free. */
 .vk-pin-glow::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 50%;
   border: 1px solid currentColor;
-  opacity: 0.5;
-  animation: vk-ping 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  opacity: 0.35;
 }
-/* dramatic "live death" entrance — drops in and slams */
+/* Brief attention ring — only on fresh kills/resurrections, and it self-stops
+   (finite count) so it never becomes a perpetual per-marker cost. */
+.vk-pin-pulse::after { opacity: 0.6; animation: vk-ping 2.6s cubic-bezier(0, 0, 0.2, 1) 2; }
+/* dramatic "live death" entrance — drops in and slams (fresh kills only) */
 .vk-pin-new { animation: vk-drop 0.6s cubic-bezier(0.22, 1.4, 0.36, 1) both; }
 /* resurrection pop */
 .vk-pin-resurrected .vk-pin-emoji { animation: vk-pop 0.7s ease-out both; }

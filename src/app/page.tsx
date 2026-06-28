@@ -28,6 +28,25 @@ import { Toaster } from "@/components/Toaster";
 const ALL_PROVIDERS = new Set<ProviderId>(PROVIDER_LIST.map((p) => p.id));
 const DEV = process.env.NEXT_PUBLIC_VK_DEV === "1";
 
+// Closest pin to a coordinate (rough planar distance, lng scaled by latitude —
+// plenty accurate at city/region scale). Used to land arrivals on a real card.
+function nearestPin(pins: Pin[], loc: { lat: number; lng: number }, exceptId?: string | null): Pin | null {
+  const cos = Math.cos((loc.lat * Math.PI) / 180);
+  let best: Pin | null = null;
+  let bestD = Infinity;
+  for (const p of pins) {
+    if (p.id === exceptId) continue;
+    const dLat = p.lat - loc.lat;
+    const dLng = (p.lng - loc.lng) * cos;
+    const d = dLat * dLat + dLng * dLng;
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best;
+}
+
 const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
   loading: () => <div className="absolute inset-0 grid place-items-center text-white/30">Loading the graveyard…</div>,
@@ -44,6 +63,8 @@ export default function Home() {
   const [modalOpen, setModalOpen] = useState(false);
   const [focus, setFocus] = useState<FocusTarget | null>(null);
   const [arrive, setArrive] = useState<ArriveTarget | null>(null);
+  const [arriveLoc, setArriveLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const arrivedRef = useRef(false);
   const focusSeq = useRef(0);
   const [enabled, setEnabled] = useState<Set<ProviderId>>(() => new Set(ALL_PROVIDERS));
   const [leftTab, setLeftTab] = useState<LeftKey>("medals");
@@ -65,13 +86,13 @@ export default function Home() {
     setUserId(getUserId());
   }, []);
 
-  // First-time visitors (no pin of their own) open on their own region instead
-  // of the whole globe — and the lookup nudges the server to seed nearby devs.
+  // First-time visitors (no pin of their own) get their coarse area on arrival —
+  // the lookup also nudges the server to seed devs near them.
   useEffect(() => {
     if (getMyPin()) return; // your own pin's auto-focus already centers the map
     let alive = true;
     fetchWhereami().then((loc) => {
-      if (alive && loc) setArrive({ lat: loc.lat, lng: loc.lng, n: 1 });
+      if (alive && loc) setArriveLoc(loc);
     });
     return () => {
       alive = false;
@@ -92,9 +113,30 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myPinId, myPin]);
 
+  // Arrival (no pin of your own): once pins are loaded, land right on the nearest
+  // dev's card so you can hand out sympathy / Good4U immediately — no hunting.
+  // Falls back to a gentle region fly-in if somehow no pins are around yet.
+  useEffect(() => {
+    if (arrivedRef.current || !arriveLoc) return;
+    if (myPinId) {
+      arrivedRef.current = true; // your own pin's focus already handles arrival
+      return;
+    }
+    if (!allPins.length) return; // wait for the first batch
+    arrivedRef.current = true;
+    const near = nearestPin(allPins, arriveLoc, myPinId);
+    if (near) focusOn({ id: near.id, lat: near.lat, lng: near.lng });
+    else flyToRegion(arriveLoc);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arriveLoc, allPins, myPinId]);
+
   function focusOn(t: { id: string; lat: number; lng: number }) {
     focusSeq.current += 1;
     setFocus({ ...t, n: focusSeq.current });
+  }
+
+  function flyToRegion(loc: { lat: number; lng: number }) {
+    setArrive({ lat: loc.lat, lng: loc.lng, n: 1 });
   }
 
   function toggleProvider(id: ProviderId) {

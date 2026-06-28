@@ -17,6 +17,7 @@ import {
   LOCAL_MIN_KM,
   LOCAL_MAX_KM,
   LOCAL_RECONCILE_SEC,
+  LOCAL_CAP,
   LOCAL_FEED_PER_RUN,
   ambientMessage,
   pickAmbientProvider,
@@ -408,7 +409,13 @@ export async function ensureLocalAmbientPins(lat: number, lng: number, cc?: stri
   const now = Date.now();
   await redis.zremrangebyscore(K.localIndex, 0, now);
 
-  const count = randInt(LOCAL_MIN, LOCAL_MAX);
+  // Hard ceiling: never let local pins grow past LOCAL_CAP, however many distinct
+  // visitor regions (or crawlers) trigger seeding.
+  const alive = Number((await redis.zcard(K.localIndex)) ?? 0);
+  const room = LOCAL_CAP - alive;
+  if (room <= 0) return;
+
+  const count = Math.min(randInt(LOCAL_MIN, LOCAL_MAX), room);
   const drafts: AmbientDraft[] = [];
   for (let i = 0; i < count; i++) {
     const near = nearbyPoint(lat, lng, LOCAL_MIN_KM, LOCAL_MAX_KM);

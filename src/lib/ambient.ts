@@ -33,6 +33,9 @@ export const LOCAL_MIN_KM = 5;
 export const LOCAL_MAX_KM = 40;
 /** One seeding per ~111km cell per window, so a busy region doesn't pile up. */
 export const LOCAL_RECONCILE_SEC = 600;
+/** Hard global ceiling on local pins — bounds total growth no matter how many
+ *  distinct visitor regions (or bots/crawlers) trigger seeding. */
+export const LOCAL_CAP = 35;
 /** Max local feed events per run (a couple "fresh nearby hit" lines). */
 export const LOCAL_FEED_PER_RUN = 2;
 
