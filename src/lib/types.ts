@@ -53,10 +53,22 @@ export interface FeedEvent {
   minutes?: number;
 }
 
+/** Last REAL dev-down (never ambient), so an open map can fly there live. */
+export interface LastKill {
+  id: string;
+  lat: number;
+  lng: number;
+  at: number;
+  /** The global kill seq — bumps every real kill, so the client flies once. */
+  seq: number;
+}
+
 export interface GlobalStats {
   kills: number;
   resurrections: number;
   active: number;
+  /** Newest real kill (omitted/null until someone real goes down). */
+  lastKill?: LastKill | null;
 }
 
 export interface ChatMessage {

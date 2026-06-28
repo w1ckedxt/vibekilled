@@ -5,12 +5,18 @@
 
 ---
 
-## STATUS — 28 jun 2026
+## STATUS — 29 jun 2026
 🟢 **LIVE** op https://vibekilled.rip (+ vibekilled.vercel.app)
 Volledige feature-set draait in productie. Git gesynced & gepusht.
-Nieuw (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld) + **resurrectie-notificaties** (browser-permissie ná de pin-drop).
+Nieuw (29 jun): **campfire host-welkom**, **grotere feed-vlaggen** (van-land→naar-land), **admin-stats echt-only** (publiek houdt de ambient-pomp), **map vliegt live naar nieuwe échte down**, en **notificatie-permission meteen bij landen**.
+Eerder (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld) + **resurrectie-notificaties** (browser-permissie ná de pin-drop).
 
 ## ACTIVE WORK / NEXT
+- [x] Campfire **host-welkom** (lokaal per bezoeker, scrollt weg, weg na 30s) — geen flood bij anderen
+- [x] Feed-vlaggen **groter & duidelijker** (22px + gouden van-land→naar-land pijl)
+- [x] Stats: publiek houdt ambient-pomp, **admin = alleen echte cijfers** (`realActive()`)
+- [x] **Map vliegt live** naar nieuwe échte down (`vk:lastkill`-signaal, ambient nooit; bot-illusie blijft intact)
+- [x] **Notificatie-permission meteen bij landen** (`LandingNotify`, gesture-safe Enable, 1× per device)
 - [x] Map-herhaling bij uitzoomen opgelost (minZoom 3 + noWrap + maxBounds) — bevestigd "tight"
 - [x] Ambient down-devs (wereldwijde floor + lokale seeding op 1e bezoek) + arrival landt op dichtstbijzijnde kaartje — live & geverifieerd
 - [x] Resurrectie-notificaties (browser-permissie ná pin-drop) — live

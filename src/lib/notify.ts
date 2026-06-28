@@ -10,6 +10,7 @@
 
 const NOTIFIED_KEY = "vk:notifiedPins"; // pin ids we've already pinged (dedupe)
 const DISMISSED_KEY = "vk:notifyDismissed"; // pin ids whose prompt was waved off
+const LANDING_KEY = "vk:notifyLandingDismissed"; // the on-arrival prompt was waved off
 
 export function notifySupported(): boolean {
   return typeof window !== "undefined" && "Notification" in window;
@@ -50,6 +51,16 @@ export function promptDismissed(pinId: string): boolean {
 
 export function dismissPrompt(pinId: string) {
   addToSet(DISMISSED_KEY, pinId);
+}
+
+// ── On-arrival prompt (shown once per device, the moment you land) ─────────────
+export function landingDismissed(): boolean {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(LANDING_KEY) === "1";
+}
+
+export function dismissLanding() {
+  if (typeof window !== "undefined") localStorage.setItem(LANDING_KEY, "1");
 }
 
 /** Fire the resurrection ping for a pin, exactly once, only while the tab is in

@@ -10,6 +10,11 @@ import { formatCountdown, formatLeft, timeAgo } from "@/lib/time";
 import { toast } from "@/lib/toast";
 import type { ProviderId } from "@/lib/types";
 
+// The campfire host's greeting — rendered locally to every visitor the moment
+// they sit down, never written to the shared feed (so it can't flood the list
+// every time someone new joins). Just a warm "you're not alone here" welcome.
+const WELCOME = "Welcome to the campfire — chat with the others behind the wall and keep each other company while the clock runs. 🫂";
+
 // The Campfire is bolted onto YOUR card — visible only while your timer runs.
 // A short "joining the campfire" beat, then a persistent chat that closes (and
 // kicks you out) the moment you resurrect. The clock is always ticking. 🔥
@@ -21,6 +26,7 @@ export function Campfire({ myPinId, myProvider }: { myPinId: string; myProvider:
   const { data: messages } = useChat(open);
   const qc = useQueryClient();
   const [joined, setJoined] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
   const [live, setLive] = useState(0);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -38,6 +44,14 @@ export function Campfire({ myPinId, myProvider }: { myPinId: string; myProvider:
     const t = setTimeout(() => setJoined(true), 1500);
     return () => clearTimeout(t);
   }, []);
+
+  // The host's greeting fades out on its own once you've settled in, so it
+  // doesn't linger above the conversation forever.
+  useEffect(() => {
+    if (!joined) return;
+    const t = setTimeout(() => setShowWelcome(false), 30000);
+    return () => clearTimeout(t);
+  }, [joined]);
 
   // Register campfire presence + poll the real "around the fire" count.
   useEffect(() => {
@@ -115,6 +129,15 @@ export function Campfire({ myPinId, myProvider }: { myPinId: string; myProvider:
       </div>
 
       <div ref={scrollRef} className="vk-scroll flex-1 space-y-2 overflow-y-auto px-3 py-2.5">
+        {showWelcome && (
+          <div className="vk-fadeup rounded-lg border border-ember/20 bg-ember/10 px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <span className="vk-fire text-base leading-none">🔥</span>
+              <span className="text-[12px] font-semibold text-ember">Campfire host</span>
+            </div>
+            <p className="ml-3 mt-0.5 text-[13px] leading-snug text-white/85">{WELCOME}</p>
+          </div>
+        )}
         {!visible.length && <div className="py-4 text-center text-[13px] text-white/35">The fire is quiet. Warm it up. 🪵</div>}
         {visible.map((m) => {
           const p = provider(m.provider);

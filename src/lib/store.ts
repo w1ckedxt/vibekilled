@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { redis, hasRedis } from "./redis";
-import type { AdminEvent, ChatMessage, FeedEvent, FeedEventType, GlobalStats, Pin, ProviderId } from "./types";
+import type { AdminEvent, ChatMessage, FeedEvent, FeedEventType, GlobalStats, LastKill, Pin, ProviderId } from "./types";
 import { achievementForCount, type Achievement } from "./achievements";
 import { nearbyPoint, obfuscate, placeLabel } from "./geo";
 import { devName } from "./names";
@@ -34,6 +34,7 @@ const K = {
   localIndex: "vk:ambient:local", // zset of visitor-local ambient pin ids -> expireAt(ms)
   localLock: (cell: string) => `vk:ambient:local:${cell}`, // per-region seeding throttle
   feed: "vk:feed", // list of JSON FeedEvent (newest first)
+  lastKill: "vk:lastkill", // JSON LastKill — newest REAL kill, for live map fly
   kills: "vk:stat:kills",
   resurrections: "vk:stat:resurrections",
   userLock: (uid: string) => `vk:user:${uid}:active`, // value=pinId, TTL=recovery
@@ -171,6 +172,10 @@ export async function createPin(input: CreatePinInput): Promise<CreatePinResult>
 
   const killCount = await redis.incr(K.userCount(input.userId));
   const seq = await redis.incr(K.kills); // global running kill number → "Dev Down #N"
+
+  // Live "someone just went down" signal — REAL kills only (ambient pins never
+  // reach this path), so an open map can fly straight to the newest casualty.
+  await redis.set(K.lastKill, JSON.stringify({ id, lat: pin.lat, lng: pin.lng, at: now, seq }));
 
   // Aggregate stats for the admin dashboard.
   const today = new Date().toISOString().slice(0, 10);
@@ -494,18 +499,48 @@ export async function getFeed(): Promise<FeedEvent[]> {
     .filter((x): x is FeedEvent => Boolean(x));
 }
 
+// PUBLIC stats — intentionally counts ambient (seeded) pins in `active` so the
+// homepage never feels empty. For the real, ambient-free number see realActive().
 export async function getStats(): Promise<GlobalStats> {
   if (!hasRedis) return { kills: 0, resurrections: 0, active: 0 };
-  const [kills, resurrections, active] = await Promise.all([
+  const [kills, resurrections, active, last] = await Promise.all([
     redis.get<number>(K.kills),
     redis.get<number>(K.resurrections),
     redis.zcard(K.index),
+    redis.get<LastKill | string>(K.lastKill),
   ]);
+  // Upstash may return the value already parsed or as a raw JSON string —
+  // tolerate both so the live map signal survives either client config.
+  let lastKill: LastKill | null = null;
+  if (last) lastKill = typeof last === "string" ? (safeJsonObj<LastKill>(last)) : last;
   return {
     kills: Number(kills ?? 0),
     resurrections: Number(resurrections ?? 0),
     active: Number(active ?? 0),
+    lastKill,
   };
+}
+
+function safeJsonObj<T>(s: string): T | null {
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return null;
+  }
+}
+
+// REAL "down now" — the global index mixes in ambient (seeded) pins, so subtract
+// both ambient sets. zcount(now, +inf) ignores expired-but-not-yet-trimmed
+// entries, keeping every set on equal footing. Admin-only (true picture).
+export async function realActive(): Promise<number> {
+  if (!hasRedis) return 0;
+  const now = Date.now();
+  const [total, ambient, local] = await Promise.all([
+    redis.zcount(K.index, now, "+inf"),
+    redis.zcount(K.ambientIndex, now, "+inf"),
+    redis.zcount(K.localIndex, now, "+inf"),
+  ]);
+  return Math.max(0, Number(total ?? 0) - Number(ambient ?? 0) - Number(local ?? 0));
 }
 
 function safeParse(s: string): FeedEvent | null {
@@ -742,11 +777,12 @@ export async function getAdminStats(): Promise<AdminStats> {
   if (!hasRedis) {
     return { online: 0, liveInChat: 0, totalUsers: 0, kills: 0, resurrections: 0, active: 0, providers: {}, countries: {}, days: {}, leaderboard: [], events: [], chat: [] };
   }
-  const [online, liveInChat, totalUsers, base, providers, countries, days, leaderboard, events, chat] = await Promise.all([
+  const [online, liveInChat, totalUsers, base, downReal, providers, countries, days, leaderboard, events, chat] = await Promise.all([
     onlineCount(),
     chatLiveCount(),
     redis.scard(K.users),
     getStats(),
+    realActive(),
     redis.hgetall(K.statProviders),
     redis.hgetall(K.statCountries),
     redis.hgetall(K.statDays),
@@ -760,7 +796,8 @@ export async function getAdminStats(): Promise<AdminStats> {
     totalUsers: Number(totalUsers ?? 0),
     kills: base.kills,
     resurrections: base.resurrections,
-    active: base.active,
+    // Admin sees the REAL down count (ambient stripped); public keeps the pump.
+    active: downReal,
     providers: toNumMap(providers),
     countries: toNumMap(countries),
     days: toNumMap(days),

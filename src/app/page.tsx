@@ -6,6 +6,7 @@ import { usePins, usePresence, useStats } from "@/lib/hooks";
 import { clearReactions, getMyPin, getName, getUserId, setMyPin, takeFirstVisit } from "@/lib/identity";
 import { fetchWhereami } from "@/lib/api";
 import { diagnosis } from "@/lib/lore";
+import { toast } from "@/lib/toast";
 import { PROVIDER_LIST } from "@/lib/providers";
 import type { Pin, ProviderId } from "@/lib/types";
 import type { FocusTarget, ArriveTarget } from "@/components/MapView";
@@ -14,6 +15,7 @@ import { KillModal } from "@/components/KillModal";
 import { DropFlash } from "@/components/DropFlash";
 import { LolReads } from "@/components/LolReads";
 import { Leaderboard } from "@/components/Leaderboard";
+import { LandingNotify } from "@/components/LandingNotify";
 import { LiveFeed } from "@/components/LiveFeed";
 import { MedalsPanel } from "@/components/MedalsPanel";
 import { ProviderFilter } from "@/components/ProviderFilter";
@@ -57,6 +59,7 @@ type MobileKey = "globe" | "kings" | "medals";
 
 export default function Home() {
   const { data: pins } = usePins();
+  const { data: stats } = useStats();
   const online = usePresence();
   const [userId, setUserId] = useState<string | null>(null);
   const [myPinId, setMyPinId] = useState<string | null>(null);
@@ -66,6 +69,9 @@ export default function Home() {
   const [arriveLoc, setArriveLoc] = useState<{ lat: number; lng: number } | null>(null);
   const arrivedRef = useRef(false);
   const focusSeq = useRef(0);
+  // Tracks the newest real kill we've already flown to, so the live map only
+  // jumps once per fresh casualty (and never on first load — see below).
+  const lastKillSeq = useRef<number | null>(null);
   const [enabled, setEnabled] = useState<Set<ProviderId>>(() => new Set(ALL_PROVIDERS));
   const [leftTab, setLeftTab] = useState<LeftKey>("medals");
   const [mobileTab, setMobileTab] = useState<MobileKey>("globe");
@@ -131,6 +137,25 @@ export default function Home() {
     else flyToRegion(arriveLoc);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [arriveLoc, allPins, myPinId]);
+
+  // Live "dev down" — when a REAL casualty arrives (ambient never sets this),
+  // fly the open map straight to them so watchers see it happen. We baseline the
+  // seq on first load (no jump to old kills) and skip our own freshly-dropped pin
+  // (the drop flow already centered us).
+  useEffect(() => {
+    const lk = stats?.lastKill;
+    if (!lk) return;
+    if (lastKillSeq.current === null) {
+      lastKillSeq.current = lk.seq; // first sight → just remember, don't fly
+      return;
+    }
+    if (lk.seq <= lastKillSeq.current) return;
+    lastKillSeq.current = lk.seq;
+    if (lk.id === myPinId || Date.now() - lk.at > 30_000) return; // mine or stale
+    focusOn({ id: lk.id, lat: lk.lat, lng: lk.lng });
+    toast({ tone: "warn", emoji: "💀", title: "A dev just went down", body: "Flying you to the fresh casualty.", ttl: 4000 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats?.lastKill, myPinId]);
 
   function focusOn(t: { id: string; lat: number; lng: number }) {
     focusSeq.current += 1;
@@ -311,6 +336,7 @@ export default function Home() {
       <KillModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={onCreated} />
       <DropFlash seq={drop.seq} diagnosis={drop.dx} />
       <ReactionFX />
+      <LandingNotify />
       <Toaster />
     </main>
   );

@@ -174,14 +174,14 @@ function FeedCard({
         <div className="min-w-0 flex-1">
           {/* Meta line: who→whom (flags) · TAG ............ time */}
           <div className="flex items-center gap-1.5">
-            <span className="flex items-center gap-1 text-[12px] leading-none">
+            <span className="flex items-center gap-1.5 leading-none">
               {isReaction && actorFlag && (
                 <>
-                  <span>{actorFlag}</span>
-                  <span className="text-white/30">→</span>
+                  <span className="text-[22px] drop-shadow-md">{actorFlag}</span>
+                  <span className="text-[14px] font-black text-gold">→</span>
                 </>
               )}
-              {targetFlag && <span>{targetFlag}</span>}
+              {targetFlag && <span className="text-[22px] drop-shadow-md">{targetFlag}</span>}
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.glow }} />
             </span>
             <span className={`text-[10px] font-bold uppercase tracking-widest ${v.tagTone}`}>{v.tag}</span>
