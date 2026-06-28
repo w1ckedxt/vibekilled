@@ -23,6 +23,19 @@ export const AMBIENT_FEED_PER_RUN = 6;
 export const AMBIENT_MIN_MINUTES = 20;
 export const AMBIENT_MAX_MINUTES = 200;
 
+// ── Local seeding (drops near each fresh visitor) ─────────────────────────────
+/** How many faked devs to drop near a visitor's own area on arrival. */
+export const LOCAL_MIN = 2;
+export const LOCAL_MAX = 4;
+/** Distance band from the visitor (km). Kept tight so it reads as "near me".
+ *  Coarse jitter (~12km) is added on top, so effective spread stays within ~50km. */
+export const LOCAL_MIN_KM = 5;
+export const LOCAL_MAX_KM = 40;
+/** One seeding per ~111km cell per window, so a busy region doesn't pile up. */
+export const LOCAL_RECONCILE_SEC = 600;
+/** Max local feed events per run (a couple "fresh nearby hit" lines). */
+export const LOCAL_FEED_PER_RUN = 2;
+
 // ── Worldwide dev cities (with ISO country for the flag) ──────────────────────
 // Spread across every continent so the faked activity reads as truly global.
 export interface AmbientCity {

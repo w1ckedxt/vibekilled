@@ -19,6 +19,13 @@ export interface FocusTarget {
   n: number;
 }
 
+export interface ArriveTarget {
+  lat: number;
+  lng: number;
+  /** Bumped once to trigger the one-time arrival fly-in. */
+  n: number;
+}
+
 function makeIcon(pin: Pin): L.DivIcon {
   const meta = provider(pin.provider);
   const glow = pin.resurrected ? "#ffd166" : meta.glow;
@@ -151,6 +158,20 @@ function AutoFollowController({
   return null;
 }
 
+// On arrival, eases the map to the visitor's own region (from coarse IP geo) so
+// they open on a populated neighbourhood instead of the whole globe. One-time;
+// only used when you don't have your own pin to fly to.
+function ArriveController({ arriveAt }: { arriveAt: ArriveTarget | null }) {
+  const map = useMap();
+  const flown = useRef(-1);
+  useEffect(() => {
+    if (!arriveAt || flown.current === arriveAt.n) return;
+    flown.current = arriveAt.n;
+    map.flyTo([arriveAt.lat, arriveAt.lng], 5, { duration: 1.8 });
+  }, [arriveAt, map]);
+  return null;
+}
+
 // Jumps back out to the whole world when the user hits "Global View".
 function GlobalViewController({ seq }: { seq: number }) {
   const map = useMap();
@@ -168,12 +189,14 @@ export default function MapView({
   pins,
   myPinId,
   focusTarget,
+  arriveTarget = null,
   globalViewSeq = 0,
   weather = false,
 }: {
   pins: Pin[];
   myPinId: string | null;
   focusTarget: FocusTarget | null;
+  arriveTarget?: ArriveTarget | null;
   globalViewSeq?: number;
   weather?: boolean;
 }) {
@@ -222,6 +245,7 @@ export default function MapView({
 
       <Fireworks pins={pins} />
       <FocusController focusTarget={focusTarget} pins={pins} markerRefs={markerRefs} />
+      <ArriveController arriveAt={arriveTarget} />
       <AutoFollowController pins={pins} enabled={!myPinId} myPinId={myPinId} />
       <GlobalViewController seq={globalViewSeq} />
     </MapContainer>

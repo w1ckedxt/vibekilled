@@ -14,6 +14,24 @@ function jitterOne(value: number, km: number): number {
   return value + (Math.random() * 2 - 1) * deg;
 }
 
+/** A random point a given distance band (km) away from an origin, in a random
+ *  direction. Used to scatter ambient devs *near* a visitor without ever landing
+ *  on their exact spot. Result is meant to be passed through `obfuscate` after. */
+export function nearbyPoint(
+  lat: number,
+  lng: number,
+  minKm: number,
+  maxKm: number,
+): { lat: number; lng: number } {
+  const dist = minKm + Math.random() * (maxKm - minKm);
+  const bearing = Math.random() * Math.PI * 2;
+  const lngScale = Math.max(0.2, Math.cos((lat * Math.PI) / 180));
+  return {
+    lat: lat + (dist / KM_PER_DEG_LAT) * Math.cos(bearing),
+    lng: lng + (dist / (KM_PER_DEG_LAT * lngScale)) * Math.sin(bearing),
+  };
+}
+
 /** Apply random jitter + coarse rounding to a coordinate pair. */
 export function obfuscate(lat: number, lng: number): { lat: number; lng: number } {
   const j = JITTER_KM * Math.random();

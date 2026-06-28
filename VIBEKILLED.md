@@ -51,7 +51,8 @@ Nieuw (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld) 
 - 🧾 **Dev Down Receipt** — deelbare kassabon-PNG per pin (`next/og`, `/api/receipt/[id]`)
 - 📚 **LOLReads** — 12 satirische "survive the outside" artikelen (entry → library-overlay → reader)
 - 🌦️ **Wall Weather** — toggle-bare storm-overlay (CircleMarker-bins) · 📟 satirische **Patch Notes** als feed-kaarten
-- 🌍 **Ambient down-devs** — wereldwijde floor (45) faked pins zodat de kaart bij binnenkomst altijd leeft (`lib/ambient.ts` + `ensureAmbientPins` in store, throttled via Redis NX-lock, gepipelined). Renderen exact als echte pins maar tellen NIET in echte analytics (geen owner/leaderboard/kills/admin) — interne `ambient`-vlag lekt nooit naar de client
+- 🌍 **Ambient down-devs** — wereldwijde floor (45) faked pins zodat de kaart bij binnenkomst altijd leeft (`lib/ambient.ts` + `ensureAmbientPins` in store, throttled via Redis NX-lock, gepipelined). Renderen exact als echte pins, gevarieerde recovery-tijden (20–200m, backdated) zodat het organisch voelt, maar tellen NIET in echte analytics (geen owner/leaderboard/kills/admin) — interne `ambient`-vlag lekt nooit naar de client
+- 📍 **Lokale seeding + arrival-zoom** — elke nieuwe bezoeker (zonder eigen pin) krijgt 2–4 faked devs binnen ~50km van zichzelf (`ensureLocalAmbientPins`, eigen index, per-regio throttle 10m) + de kaart vliegt bij binnenkomst naar hun regio (`/api/whereami` coarse IP-geo → `ArriveController`). Prod-only (lokaal geen IP-headers)
 - 🔔 **Resurrectie-notificaties** — browser-notificatie ("You're resurrected, visit VibeKilled.rip to celebrate") op het exacte recover-moment; toestemming gevraagd ná een succesvolle pin-drop (`lib/notify.ts` + `ResurrectionNotify` in SessionPanel). Precieze timer (werkt in background-tab); closed-tab vereist later Web Push
 
 ## ENV (Vercel + .env.local)

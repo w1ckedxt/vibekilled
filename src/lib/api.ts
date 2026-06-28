@@ -14,6 +14,22 @@ export async function fetchPins(): Promise<Pin[]> {
   return (await jsonOrThrow<{ pins: Pin[] }>(await fetch("/api/pins", { cache: "no-store" }))).pins;
 }
 
+export interface VisitorLoc {
+  lat: number;
+  lng: number;
+}
+
+/** Coarse self-location to center the map on arrival (null if the edge can't
+ *  resolve it, e.g. on localhost). Also nudges the server to seed nearby devs. */
+export async function fetchWhereami(): Promise<VisitorLoc | null> {
+  try {
+    const res = await fetch("/api/whereami", { cache: "no-store" });
+    return (await res.json()).loc ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPin(id: string): Promise<Pin | null> {
   const res = await fetch(`/api/pins/${id}`, { cache: "no-store" });
   if (res.status === 404) return null;

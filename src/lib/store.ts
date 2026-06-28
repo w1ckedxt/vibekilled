@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { redis, hasRedis } from "./redis";
 import type { AdminEvent, ChatMessage, FeedEvent, FeedEventType, GlobalStats, Pin, ProviderId } from "./types";
 import { achievementForCount, type Achievement } from "./achievements";
-import { obfuscate, placeLabel } from "./geo";
+import { nearbyPoint, obfuscate, placeLabel } from "./geo";
 import { devName } from "./names";
 import {
   AMBIENT_FLOOR,
@@ -12,6 +12,12 @@ import {
   AMBIENT_FEED_PER_RUN,
   AMBIENT_MIN_MINUTES,
   AMBIENT_MAX_MINUTES,
+  LOCAL_MIN,
+  LOCAL_MAX,
+  LOCAL_MIN_KM,
+  LOCAL_MAX_KM,
+  LOCAL_RECONCILE_SEC,
+  LOCAL_FEED_PER_RUN,
   ambientMessage,
   pickAmbientProvider,
   pickCity,
@@ -22,8 +28,10 @@ import {
 const K = {
   pin: (id: string) => `vk:pin:${id}`,
   index: "vk:pins", // zset: member=id, score=expireAt(ms)
-  ambientIndex: "vk:ambient", // zset of ambient (faked) pin ids -> expireAt(ms)
-  ambientLock: "vk:ambient:lock", // single-reconciler throttle
+  ambientIndex: "vk:ambient", // zset of global ambient (faked) pin ids -> expireAt(ms)
+  ambientLock: "vk:ambient:lock", // single-reconciler throttle (global floor)
+  localIndex: "vk:ambient:local", // zset of visitor-local ambient pin ids -> expireAt(ms)
+  localLock: (cell: string) => `vk:ambient:local:${cell}`, // per-region seeding throttle
   feed: "vk:feed", // list of JSON FeedEvent (newest first)
   kills: "vk:stat:kills",
   resurrections: "vk:stat:resurrections",
@@ -278,10 +286,18 @@ interface AmbientDraft {
   feed?: Omit<FeedEvent, "id">;
 }
 
-function buildAmbientPin(now: number): AmbientDraft {
+/** Where an ambient pin originates: a global hub, or a point near a visitor. */
+interface AmbientOrigin {
+  lat: number;
+  lng: number;
+  cc?: string;
+}
+
+function buildAmbientPin(now: number, origin?: AmbientOrigin): AmbientDraft {
   const id = nanoid(12);
-  const city = pickCity();
-  const { lat, lng } = obfuscate(city.lat, city.lng);
+  const src: AmbientOrigin = origin ?? pickCity();
+  const { lat, lng } = obfuscate(src.lat, src.lng);
+  const cc = src.cc;
   const provider = pickAmbientProvider();
   const name = devName();
 
@@ -309,7 +325,7 @@ function buildAmbientPin(now: number): AmbientDraft {
     recoverAt,
     name,
     message,
-    country: city.cc,
+    country: cc ?? "",
     good4u,
     sympathy,
     views,
@@ -324,16 +340,38 @@ function buildAmbientPin(now: number): AmbientDraft {
           type: "kill",
           name,
           provider,
-          place: placeLabel(city.cc),
+          place: placeLabel(cc),
           at: createdAt,
           pinId: id,
           message: message || undefined,
-          country: city.cc,
+          country: cc,
           minutes: lifespanMin,
         }
       : undefined;
 
   return { id, hash, expireAt, feed };
+}
+
+/** Persist a batch of ambient drafts: pipelined hash + expiry + both the shared
+ *  map index and a per-flavour index (global floor vs visitor-local), then a
+ *  capped feed trickle so the Globe of Pain looks live without drowning real kills. */
+async function writeAmbientDrafts(
+  drafts: AmbientDraft[],
+  index: string,
+  feedCap: number,
+  now: number,
+): Promise<void> {
+  if (!drafts.length) return;
+  const pipe = redis.pipeline();
+  for (const d of drafts) {
+    pipe.hset(K.pin(d.id), d.hash);
+    pipe.expire(K.pin(d.id), Math.ceil((d.expireAt - now) / 1000));
+    pipe.zadd(K.index, { score: d.expireAt, member: d.id });
+    pipe.zadd(index, { score: d.expireAt, member: d.id });
+  }
+  await pipe.exec();
+  const feeds = drafts.map((d) => d.feed).filter(Boolean).slice(0, feedCap) as Omit<FeedEvent, "id">[];
+  for (const f of feeds) await pushFeed(f);
 }
 
 /** Top the worldwide ambient floor back up. Cheap + throttled; safe to call on
@@ -353,20 +391,30 @@ export async function ensureAmbientPins(): Promise<void> {
 
   const drafts: AmbientDraft[] = [];
   for (let i = 0; i < deficit; i++) drafts.push(buildAmbientPin(now));
+  await writeAmbientDrafts(drafts, K.ambientIndex, AMBIENT_FEED_PER_RUN, now);
+}
 
-  const pipe = redis.pipeline();
-  for (const d of drafts) {
-    pipe.hset(K.pin(d.id), d.hash);
-    pipe.expire(K.pin(d.id), Math.ceil((d.expireAt - now) / 1000));
-    pipe.zadd(K.index, { score: d.expireAt, member: d.id });
-    pipe.zadd(K.ambientIndex, { score: d.expireAt, member: d.id });
+/** Drop a small cluster of faked devs *near* a fresh visitor so their own area
+ *  looks alive on arrival. Throttled per ~111km cell so a busy region never
+ *  piles up. These live in their own index and never affect the global floor. */
+export async function ensureLocalAmbientPins(lat: number, lng: number, cc?: string): Promise<void> {
+  if (!hasRedis) return;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  // One seeding per coarse cell per window — collapses repeat visits + pollers.
+  const cell = `${Math.round(lat)}:${Math.round(lng)}`;
+  const lock = await redis.set(K.localLock(cell), 1, { nx: true, ex: LOCAL_RECONCILE_SEC });
+  if (!lock) return;
+
+  const now = Date.now();
+  await redis.zremrangebyscore(K.localIndex, 0, now);
+
+  const count = randInt(LOCAL_MIN, LOCAL_MAX);
+  const drafts: AmbientDraft[] = [];
+  for (let i = 0; i < count; i++) {
+    const near = nearbyPoint(lat, lng, LOCAL_MIN_KM, LOCAL_MAX_KM);
+    drafts.push(buildAmbientPin(now, { lat: near.lat, lng: near.lng, cc }));
   }
-  await pipe.exec();
-
-  // A capped trickle of feed events so the Globe of Pain looks live without
-  // drowning real kills.
-  const feeds = drafts.map((d) => d.feed).filter(Boolean).slice(0, AMBIENT_FEED_PER_RUN) as Omit<FeedEvent, "id">[];
-  for (const f of feeds) await pushFeed(f);
+  await writeAmbientDrafts(drafts, K.localIndex, LOCAL_FEED_PER_RUN, now);
 }
 
 // ── Reactions (Good4U / Extend Sympathy / view) ──────────────────────────────

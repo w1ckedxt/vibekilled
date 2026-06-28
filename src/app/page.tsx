@@ -4,10 +4,11 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePins, usePresence, useStats } from "@/lib/hooks";
 import { clearReactions, getMyPin, getName, getUserId, setMyPin } from "@/lib/identity";
+import { fetchWhereami } from "@/lib/api";
 import { diagnosis } from "@/lib/lore";
 import { PROVIDER_LIST } from "@/lib/providers";
 import type { Pin, ProviderId } from "@/lib/types";
-import type { FocusTarget } from "@/components/MapView";
+import type { FocusTarget, ArriveTarget } from "@/components/MapView";
 import { KillButton } from "@/components/KillButton";
 import { KillModal } from "@/components/KillModal";
 import { DropFlash } from "@/components/DropFlash";
@@ -42,6 +43,7 @@ export default function Home() {
   const [myPinId, setMyPinId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [focus, setFocus] = useState<FocusTarget | null>(null);
+  const [arrive, setArrive] = useState<ArriveTarget | null>(null);
   const focusSeq = useRef(0);
   const [enabled, setEnabled] = useState<Set<ProviderId>>(() => new Set(ALL_PROVIDERS));
   const [leftTab, setLeftTab] = useState<LeftKey>("medals");
@@ -61,6 +63,19 @@ export default function Home() {
   useEffect(() => {
     setMyPinId(getMyPin());
     setUserId(getUserId());
+  }, []);
+
+  // First-time visitors (no pin of their own) open on their own region instead
+  // of the whole globe — and the lookup nudges the server to seed nearby devs.
+  useEffect(() => {
+    if (getMyPin()) return; // your own pin's auto-focus already centers the map
+    let alive = true;
+    fetchWhereami().then((loc) => {
+      if (alive && loc) setArrive({ lat: loc.lat, lng: loc.lng, n: 1 });
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const allPins = pins ?? [];
@@ -129,7 +144,7 @@ export default function Home() {
 
   return (
     <main className="relative h-full w-full overflow-hidden">
-      <MapView pins={visiblePins} myPinId={myPinId} focusTarget={focus} globalViewSeq={globalSeq} weather={weatherOn} />
+      <MapView pins={visiblePins} myPinId={myPinId} focusTarget={focus} arriveTarget={arrive} globalViewSeq={globalSeq} weather={weatherOn} />
 
       <div className="pointer-events-none absolute inset-0 z-[600]">
         {/* Header */}
