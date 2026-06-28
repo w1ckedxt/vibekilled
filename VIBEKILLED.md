@@ -12,11 +12,17 @@ Nieuw (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld) 
 
 ## ACTIVE WORK / NEXT
 - [x] Map-herhaling bij uitzoomen opgelost (minZoom 3 + noWrap + maxBounds) — bevestigd "tight"
-- [ ] Op telefoon checken: ronde "I've been hit" CTA vs bottom-sheet; auto-pan-gevoel (zachter/uit?)
+- [x] Ambient down-devs (wereldwijde floor + lokale seeding op 1e bezoek) + arrival landt op dichtstbijzijnde kaartje — live & geverifieerd
+- [x] Resurrectie-notificaties (browser-permissie ná pin-drop) — live
+- [x] Schaal-fixes: caps, viewport-culling, fresh-only animaties, geen auto-follow chase — live
+- [ ] Op telefoon checken: arrival-landing + feel (geen jank), ronde "I've been hit" CTA vs bottom-sheet
+- [ ] Notificatie-flow live testen op echt device (permissie-kaartje ná drop + ping op recover)
+- [ ] Fase 2 optie: Web Push (service worker + VAPID) voor closed-tab resurrectie-notificaties
 - [ ] Campfire-in-popup op mobiel finetunen (Leaflet popup + toetsenbord)
 - [ ] Evt. chat als mobiele sheet i.p.v. in de map-popup
 - [ ] Vercel WAF/BotID bij echte traffic-piek
 - [ ] Aparte test-database (nu deelt lokaal de prod-Redis)
+- [ ] Tunen na live-gevoel: ambient floor/caps/feed-kansen in `lib/ambient.ts`
 
 ## IDEAS / ICEBOX (toekomst, geen prioriteit)
 - Mini-game achter de muur tijdens je wachttijd: 🧱 **Tetris** of 🔥 **"Burn The Tokens"** (idle/clicker), naast of i.p.v. de campfire-chat.
