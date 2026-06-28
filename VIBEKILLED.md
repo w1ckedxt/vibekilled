@@ -5,9 +5,10 @@
 
 ---
 
-## STATUS — 26 jun 2026
+## STATUS — 28 jun 2026
 🟢 **LIVE** op https://vibekilled.rip (+ vibekilled.vercel.app)
 Volledige feature-set draait in productie. Git gesynced & gepusht.
+Nieuw (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld) + **resurrectie-notificaties** (browser-permissie ná de pin-drop).
 
 ## ACTIVE WORK / NEXT
 - [x] Map-herhaling bij uitzoomen opgelost (minZoom 3 + noWrap + maxBounds) — bevestigd "tight"
@@ -50,6 +51,8 @@ Volledige feature-set draait in productie. Git gesynced & gepusht.
 - 🧾 **Dev Down Receipt** — deelbare kassabon-PNG per pin (`next/og`, `/api/receipt/[id]`)
 - 📚 **LOLReads** — 12 satirische "survive the outside" artikelen (entry → library-overlay → reader)
 - 🌦️ **Wall Weather** — toggle-bare storm-overlay (CircleMarker-bins) · 📟 satirische **Patch Notes** als feed-kaarten
+- 🌍 **Ambient down-devs** — wereldwijde floor (45) faked pins zodat de kaart bij binnenkomst altijd leeft (`lib/ambient.ts` + `ensureAmbientPins` in store, throttled via Redis NX-lock, gepipelined). Renderen exact als echte pins maar tellen NIET in echte analytics (geen owner/leaderboard/kills/admin) — interne `ambient`-vlag lekt nooit naar de client
+- 🔔 **Resurrectie-notificaties** — browser-notificatie ("You're resurrected, visit VibeKilled.rip to celebrate") op het exacte recover-moment; toestemming gevraagd ná een succesvolle pin-drop (`lib/notify.ts` + `ResurrectionNotify` in SessionPanel). Precieze timer (werkt in background-tab); closed-tab vereist later Web Push
 
 ## ENV (Vercel + .env.local)
 - `KV_REST_API_URL` / `KV_REST_API_TOKEN` (Upstash, auto via Marketplace)

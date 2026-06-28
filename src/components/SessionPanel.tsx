@@ -7,6 +7,7 @@ import { formatCountdown } from "@/lib/time";
 import { celebrate } from "@/lib/celebrate";
 import { ShareButton } from "./ShareButton";
 import { TouchGrassQuest } from "./TouchGrassQuest";
+import { ResurrectionNotify } from "./ResurrectionNotify";
 import { LolReads } from "./LolReads";
 import { diagnosis } from "@/lib/lore";
 
@@ -81,6 +82,10 @@ export function SessionPanel({
       )}
 
       {!resurrected && <TouchGrassQuest pinId={pin.id} />}
+
+      {/* Ask to enable resurrection pings now that the pin is placed, then fire
+          one the moment the wall lifts. Renders only when relevant. */}
+      <ResurrectionNotify pin={pin} />
 
       <ShareButton
         resurrected={resurrected}

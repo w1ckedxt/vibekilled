@@ -2,11 +2,28 @@ import { nanoid } from "nanoid";
 import { redis, hasRedis } from "./redis";
 import type { AdminEvent, ChatMessage, FeedEvent, FeedEventType, GlobalStats, Pin, ProviderId } from "./types";
 import { achievementForCount, type Achievement } from "./achievements";
+import { obfuscate, placeLabel } from "./geo";
+import { devName } from "./names";
+import {
+  AMBIENT_FLOOR,
+  AMBIENT_RECONCILE_SEC,
+  AMBIENT_KILL_FEED_P,
+  AMBIENT_RESURRECT_FEED_P,
+  AMBIENT_FEED_PER_RUN,
+  AMBIENT_MIN_MINUTES,
+  AMBIENT_MAX_MINUTES,
+  ambientMessage,
+  pickAmbientProvider,
+  pickCity,
+  randInt,
+} from "./ambient";
 
 // ── Keys ────────────────────────────────────────────────────────────────────
 const K = {
   pin: (id: string) => `vk:pin:${id}`,
   index: "vk:pins", // zset: member=id, score=expireAt(ms)
+  ambientIndex: "vk:ambient", // zset of ambient (faked) pin ids -> expireAt(ms)
+  ambientLock: "vk:ambient:lock", // single-reconciler throttle
   feed: "vk:feed", // list of JSON FeedEvent (newest first)
   kills: "vk:stat:kills",
   resurrections: "vk:stat:resurrections",
@@ -211,6 +228,7 @@ export async function listPins(): Promise<Pin[]> {
     const pin = toPin(row);
     if (!pin) continue;
     const owner = row?.ownerId ? String(row.ownerId) : undefined;
+    const isAmbient = Number(row?.ambient ?? 0) === 1;
     pin.online = owner ? present.has(owner) : false;
     // Lazy resurrection: celebrate the moment the timer crosses zero, and gift
     // an automatic Good4U so the comeback never goes uncelebrated.
@@ -219,11 +237,17 @@ export async function listPins(): Promise<Pin[]> {
       pin.good4u += 1;
       await redis.hset(K.pin(pin.id), { resurrected: 1 });
       await redis.hincrby(K.pin(pin.id), "good4u", 1);
-      await redis.incr(K.resurrections);
-      // 3h cooldown: no claiming a fresh wall right after coming back.
-      if (owner) await redis.set(K.cooldown(owner), 1, { ex: COOLDOWN_SEC });
-      await pushFeed({ type: "resurrection", name: pin.name, provider: pin.provider, place: "", at: now, pinId: pin.id });
-      await adminLog({ type: "resurrection", name: pin.name, provider: pin.provider });
+      // Ambient (faked) pins are visual only: fireworks + an occasional feed
+      // event, but never the real counters, cooldown, or admin journey.
+      if (!isAmbient) {
+        await redis.incr(K.resurrections);
+        // 3h cooldown: no claiming a fresh wall right after coming back.
+        if (owner) await redis.set(K.cooldown(owner), 1, { ex: COOLDOWN_SEC });
+        await adminLog({ type: "resurrection", name: pin.name, provider: pin.provider });
+      }
+      if (!isAmbient || Math.random() < AMBIENT_RESURRECT_FEED_P) {
+        await pushFeed({ type: "resurrection", name: pin.name, provider: pin.provider, place: "", at: now, pinId: pin.id });
+      }
     }
     pins.push(pin);
   }
@@ -239,6 +263,110 @@ export async function getPin(id: string): Promise<Pin | null> {
     pin.online = typeof score === "number" && score > Date.now() - PRESENCE_TTL_MS;
   }
   return pin;
+}
+
+// ── Ambient "down devs" (worldwide faked floor) ───────────────────────────────
+// Keeps the map alive on arrival. A Redis NX lock means only one request per
+// reconcile interval actually does work — the rest no-op cheaply. New pins are
+// minted with staggered ages so a fresh visitor sees varied countdowns, not a
+// wall of identical timers. Writes are pipelined into ~one round trip.
+
+interface AmbientDraft {
+  id: string;
+  hash: Record<string, string | number>;
+  expireAt: number;
+  feed?: Omit<FeedEvent, "id">;
+}
+
+function buildAmbientPin(now: number): AmbientDraft {
+  const id = nanoid(12);
+  const city = pickCity();
+  const { lat, lng } = obfuscate(city.lat, city.lng);
+  const provider = pickAmbientProvider();
+  const name = devName();
+
+  const lifespanMin = randInt(AMBIENT_MIN_MINUTES, AMBIENT_MAX_MINUTES);
+  // Backdate the kill by up to ~60% of its lifespan so time-left varies on load
+  // while still guaranteeing recoverAt stays in the future.
+  const ageMs = randInt(0, Math.floor(lifespanMin * 0.6)) * 60_000;
+  const createdAt = now - ageMs;
+  const recoverAt = createdAt + lifespanMin * 60_000;
+  const expireAt = recoverAt + GRACE_MS;
+
+  const message = Math.random() < 0.4 ? ambientMessage() : "";
+  // A little pre-existing solidarity so they don't all read as untouched zeros.
+  const good4u = randInt(0, 4);
+  const sympathy = randInt(0, 6);
+  const handshake = 1 + randInt(0, 3);
+  const views = randInt(0, 30);
+
+  const hash: Record<string, string | number> = {
+    id,
+    provider,
+    lat,
+    lng,
+    createdAt,
+    recoverAt,
+    name,
+    message,
+    country: city.cc,
+    good4u,
+    sympathy,
+    views,
+    handshake,
+    resurrected: 0,
+    ambient: 1, // internal marker — never surfaced to clients (toPin ignores it)
+  };
+
+  const feed: Omit<FeedEvent, "id"> | undefined =
+    Math.random() < AMBIENT_KILL_FEED_P
+      ? {
+          type: "kill",
+          name,
+          provider,
+          place: placeLabel(city.cc),
+          at: createdAt,
+          pinId: id,
+          message: message || undefined,
+          country: city.cc,
+          minutes: lifespanMin,
+        }
+      : undefined;
+
+  return { id, hash, expireAt, feed };
+}
+
+/** Top the worldwide ambient floor back up. Cheap + throttled; safe to call on
+ *  every map fetch. Real pins live in a separate index, so the floor is purely
+ *  faked devs and never blocks or counts real activity. */
+export async function ensureAmbientPins(): Promise<void> {
+  if (!hasRedis) return;
+  // Only one server reconciles per interval — everyone else returns instantly.
+  const lock = await redis.set(K.ambientLock, 1, { nx: true, ex: AMBIENT_RECONCILE_SEC });
+  if (!lock) return;
+
+  const now = Date.now();
+  await redis.zremrangebyscore(K.ambientIndex, 0, now);
+  const alive = Number((await redis.zcard(K.ambientIndex)) ?? 0);
+  const deficit = AMBIENT_FLOOR - alive;
+  if (deficit <= 0) return;
+
+  const drafts: AmbientDraft[] = [];
+  for (let i = 0; i < deficit; i++) drafts.push(buildAmbientPin(now));
+
+  const pipe = redis.pipeline();
+  for (const d of drafts) {
+    pipe.hset(K.pin(d.id), d.hash);
+    pipe.expire(K.pin(d.id), Math.ceil((d.expireAt - now) / 1000));
+    pipe.zadd(K.index, { score: d.expireAt, member: d.id });
+    pipe.zadd(K.ambientIndex, { score: d.expireAt, member: d.id });
+  }
+  await pipe.exec();
+
+  // A capped trickle of feed events so the Globe of Pain looks live without
+  // drowning real kills.
+  const feeds = drafts.map((d) => d.feed).filter(Boolean).slice(0, AMBIENT_FEED_PER_RUN) as Omit<FeedEvent, "id">[];
+  for (const f of feeds) await pushFeed(f);
 }
 
 // ── Reactions (Good4U / Extend Sympathy / view) ──────────────────────────────

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPin, getUserActivePin, getUserCooldown, listPins } from "@/lib/store";
+import { createPin, ensureAmbientPins, getUserActivePin, getUserCooldown, listPins } from "@/lib/store";
 import { obfuscate, placeLabel, hubForSeed } from "@/lib/geo";
 import { devName } from "@/lib/names";
 import { moderateMessage, moderateName } from "@/lib/moderation";
@@ -11,6 +11,9 @@ export const dynamic = "force-dynamic";
 
 // GET /api/pins — every active + recently-resurrected pin for the map.
 export async function GET() {
+  // Keep a worldwide floor of ambient devs so the map is never empty on arrival.
+  // Throttled by a Redis lock, so this is a cheap no-op on most requests.
+  await ensureAmbientPins();
   const pins = await listPins();
   return NextResponse.json(
     { pins },
