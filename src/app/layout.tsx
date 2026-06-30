@@ -3,6 +3,12 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "./query-provider";
 
+// StartupBar.co directory widget. Rendered as a plain async <script>: React 19
+// hoists it into the server-rendered <head> as a LITERAL tag (data-* attributes
+// preserved), which is exactly what StartupBar's "verify it's live" check looks
+// for — more robust than next/script's bootstrap-array injection.
+const STARTUPBAR_ID = "5273a5d1-5b33-47fb-a9d0-364872b4676b";
+
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
@@ -36,6 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="h-full">
         <QueryProvider>{children}</QueryProvider>
+        <script async src="https://startupbar.co/widget/loader.js" data-startup-id={STARTUPBAR_ID} />
       </body>
     </html>
   );

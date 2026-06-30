@@ -7,7 +7,7 @@ import { devName } from "@/lib/names";
 
 interface AdminEvent {
   id: string;
-  type: "land" | "kill" | "chat" | "good4u" | "sympathy" | "handshake" | "resurrection";
+  type: "land" | "kill" | "chat" | "good4u" | "sympathy" | "handshake" | "resurrection" | "tetris";
   name?: string;
   provider?: string;
   country?: string;
@@ -28,6 +28,8 @@ interface AdminStats {
   leaderboard: { rank: number; name: string; score: number; good4u: number; sympathy: number }[];
   events: AdminEvent[];
   chat: { id: string; name: string; provider: string; text: string; at: number; staff?: boolean; bot?: boolean }[];
+  tetrisPlays: number;
+  tetrisHigh: number;
 }
 
 const EVENT_META: Record<AdminEvent["type"], { icon: string; label: string; color: string }> = {
@@ -38,6 +40,7 @@ const EVENT_META: Record<AdminEvent["type"], { icon: string; label: string; colo
   sympathy: { icon: "🫂", label: "gave sympathy", color: "text-emerald-400" },
   handshake: { icon: "🤝", label: "said I hear you", color: "text-electric" },
   resurrection: { icon: "🎆", label: "resurrected", color: "text-gold" },
+  tetris: { icon: "🎮", label: "played Tetris", color: "text-ember" },
 };
 
 const COOKIE = "vk_admin";
@@ -200,13 +203,15 @@ export default function AdminPage() {
         {error && <p className="mb-4 text-sm text-coral">{error}</p>}
 
         {/* Top metrics */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-4">
           <Metric label="👀 online now" value={data?.online ?? 0} color="text-emerald-400" />
-          <Metric label="🔥 live in chat" value={data?.liveInChat ?? 0} color="text-ember" />
+          <Metric label="🔥 around the fire" value={data?.liveInChat ?? 0} color="text-ember" />
           <Metric label="👥 total devs" value={data?.totalUsers ?? 0} color="text-electric" />
           <Metric label="☠ kills" value={data?.kills ?? 0} color="text-coral" />
           <Metric label="⏳ down now" value={data?.active ?? 0} color="text-ember" />
           <Metric label="✨ revived" value={data?.resurrections ?? 0} color="text-gold" />
+          <Metric label="🎮 tetris plays" value={data?.tetrisPlays ?? 0} color="text-ember" />
+          <Metric label="🏆 tetris high" value={data?.tetrisHigh ?? 0} color="text-gold" />
         </div>
 
         {/* Prominent live activity (journey) */}

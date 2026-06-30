@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { ARTICLES, type Article } from "@/lib/articles";
 
 // LOLReads — satirical "how to survive outside" articles. Presented as a single
@@ -32,18 +33,24 @@ export function LolReads({ title = "LOLReads" }: { title?: string }) {
         <span className="text-lg text-white/30">›</span>
       </button>
 
-      {libOpen && (
-        <div className="pointer-events-auto fixed inset-0 z-[940] flex items-end justify-center sm:items-center" role="dialog" aria-modal>
-          <div className="vk-backdrop-in absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={close} />
-          <div className="glass vk-modal-in relative z-10 flex max-h-[82vh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 sm:rounded-2xl">
-            {current ? (
-              <Reader article={current} onBack={() => setCurrent(null)} onClose={close} />
-            ) : (
-              <Library onPick={setCurrent} onClose={close} />
-            )}
-          </div>
-        </div>
-      )}
+      {libOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          // Portal to <body> so the overlay escapes any transformed ancestor
+          // (e.g. the Leaflet popup the Campfire lives in) and truly fills the
+          // viewport instead of being offset by the popup's transform.
+          <div className="pointer-events-auto fixed inset-0 z-[940] flex items-end justify-center sm:items-center" role="dialog" aria-modal>
+            <div className="vk-backdrop-in absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={close} />
+            <div className="glass vk-modal-in relative z-10 flex max-h-[82vh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 sm:rounded-2xl">
+              {current ? (
+                <Reader article={current} onBack={() => setCurrent(null)} onClose={close} />
+              ) : (
+                <Library onPick={setCurrent} onClose={close} />
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

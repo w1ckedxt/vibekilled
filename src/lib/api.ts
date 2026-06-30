@@ -131,6 +131,26 @@ export async function joinCampfire(userId: string): Promise<number> {
   }
 }
 
+/** Report a finished Campfire Tetris game (fire-and-forget; never throws). The
+ *  server drops it into the admin journey + bumps the play counter / high score. */
+export async function reportTetris(payload: {
+  userId: string;
+  name: string;
+  provider: ProviderId;
+  score: number;
+  lines: number;
+}): Promise<void> {
+  try {
+    await fetch("/api/tetris", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    /* best-effort telemetry — a dropped game log is not worth surfacing */
+  }
+}
+
 export async function fetchMe(userId: string): Promise<MeStats> {
   return jsonOrThrow<MeStats>(await fetch(`/api/me?userId=${encodeURIComponent(userId)}`, { cache: "no-store" }));
 }

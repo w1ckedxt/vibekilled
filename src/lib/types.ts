@@ -96,7 +96,8 @@ export type AdminEventType =
   | "good4u"
   | "sympathy"
   | "handshake"
-  | "resurrection";
+  | "resurrection"
+  | "tetris";
 
 export interface AdminEvent {
   id: string;

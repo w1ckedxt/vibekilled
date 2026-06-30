@@ -60,6 +60,8 @@ const K = {
   downMin: "vk:user:downmin", // hash userId -> total recovery minutes logged
   streak: "vk:user:streak", // hash userId -> current daily streak
   lastDay: "vk:user:lastday", // hash userId -> last active YYYY-MM-DD
+  tetrisPlays: "vk:stat:tetris:plays", // total Campfire Tetris games played
+  tetrisHigh: "vk:stat:tetris:high", // highest Tetris score seen
 };
 
 const PRESENCE_TTL_MS = 60_000;
@@ -618,6 +620,34 @@ export async function getChat(): Promise<ChatMessage[]> {
     .reverse(); // oldest first for chat display
 }
 
+// ── Campfire Tetris (kill time behind the wall) ───────────────────────────────
+export interface TetrisResult {
+  userId: string;
+  name: string;
+  provider: ProviderId;
+  score: number;
+  lines: number;
+}
+
+/** Record a finished Campfire Tetris game: bumps the play counter + high score
+ *  and drops a "played Tetris" beat into the admin journey. Gated on an active
+ *  pin (same wall the Campfire itself requires) so only real, down devs count —
+ *  no bots or drive-by spam. Returns false when it didn't count. */
+export async function recordTetris(r: TetrisResult): Promise<boolean> {
+  if (!hasRedis) return false;
+  if (!r.userId || !(await getUserActivePin(r.userId))) return false;
+  await redis.incr(K.tetrisPlays);
+  const prevHigh = Number((await redis.get(K.tetrisHigh)) ?? 0);
+  if (r.score > prevHigh) await redis.set(K.tetrisHigh, r.score);
+  await adminLog({
+    type: "tetris",
+    name: r.name,
+    provider: r.provider,
+    text: `scored ${r.score.toLocaleString()} · ${r.lines} line${r.lines === 1 ? "" : "s"}`,
+  });
+  return true;
+}
+
 // ── Admin journey log ─────────────────────────────────────────────────────────
 const EVENTS_MAX = 150;
 
@@ -765,6 +795,8 @@ export interface AdminStats {
   leaderboard: LeaderRow[];
   events: AdminEvent[];
   chat: ChatMessage[];
+  tetrisPlays: number;
+  tetrisHigh: number;
 }
 
 function toNumMap(h: Record<string, unknown> | null): Record<string, number> {
@@ -775,9 +807,9 @@ function toNumMap(h: Record<string, unknown> | null): Record<string, number> {
 
 export async function getAdminStats(): Promise<AdminStats> {
   if (!hasRedis) {
-    return { online: 0, liveInChat: 0, totalUsers: 0, kills: 0, resurrections: 0, active: 0, providers: {}, countries: {}, days: {}, leaderboard: [], events: [], chat: [] };
+    return { online: 0, liveInChat: 0, totalUsers: 0, kills: 0, resurrections: 0, active: 0, providers: {}, countries: {}, days: {}, leaderboard: [], events: [], chat: [], tetrisPlays: 0, tetrisHigh: 0 };
   }
-  const [online, liveInChat, totalUsers, base, downReal, providers, countries, days, leaderboard, events, chat] = await Promise.all([
+  const [online, liveInChat, totalUsers, base, downReal, providers, countries, days, leaderboard, events, chat, tetrisPlays, tetrisHigh] = await Promise.all([
     onlineCount(),
     chatLiveCount(),
     redis.scard(K.users),
@@ -789,6 +821,8 @@ export async function getAdminStats(): Promise<AdminStats> {
     getLeaderboard(20),
     getEvents(),
     getChat(),
+    redis.get<number>(K.tetrisPlays),
+    redis.get<number>(K.tetrisHigh),
   ]);
   return {
     online,
@@ -804,5 +838,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     leaderboard,
     events,
     chat,
+    tetrisPlays: Number(tetrisPlays ?? 0),
+    tetrisHigh: Number(tetrisHigh ?? 0),
   };
 }
