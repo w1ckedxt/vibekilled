@@ -145,7 +145,13 @@ function FocusController({
       const m = markerRefs.current?.get(focusTarget.id);
       if (m) {
         opened.current = focusTarget.n;
-        const t = setTimeout(() => m.openPopup(), 800);
+        // Close whatever card was open first (e.g. the arrival "nearest dev"
+        // card, or a fresh-casualty fly-in) so the focused pin's popup is the
+        // ONLY one left — your own card can't lose to a stray open popup.
+        const t = setTimeout(() => {
+          map.closePopup();
+          m.openPopup();
+        }, 800);
         return () => clearTimeout(t);
       }
       // Marker not mounted yet — let the next `pins` change retry the open.

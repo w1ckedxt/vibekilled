@@ -153,7 +153,9 @@ export default function Home() {
     }
     if (lk.seq <= lastKillSeq.current) return;
     lastKillSeq.current = lk.seq;
-    if (lk.id === myPinId || Date.now() - lk.at > 30_000) return; // mine or stale
+    // Never yank the view away while YOU'RE down — your own card (with the
+    // Campfire) must stay open and win. Also skip your own kill / stale ones.
+    if (myPinId || Date.now() - lk.at > 30_000) return;
     focusOn({ id: lk.id, lat: lk.lat, lng: lk.lng });
     toast({ tone: "warn", emoji: "💀", title: "A dev just went down", body: "Flying you to the fresh casualty.", ttl: 4000 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
