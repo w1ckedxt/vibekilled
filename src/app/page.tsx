@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePins, usePresence, useStats } from "@/lib/hooks";
 import { clearReactions, getMyPin, getName, getUserId, setMyPin, takeFirstVisit } from "@/lib/identity";
 import { fetchWhereami } from "@/lib/api";
@@ -58,6 +59,7 @@ type LeftKey = "medals" | "kings";
 type MobileKey = "globe" | "kings" | "medals";
 
 export default function Home() {
+  const qc = useQueryClient();
   const { data: pins } = usePins();
   const { data: stats } = useStats();
   const online = usePresence();
@@ -185,6 +187,17 @@ export default function Home() {
   }
 
   function onCreated(pin: Pin) {
+    // Optimistically drop YOUR pin into the map cache right now. Without this the
+    // marker doesn't exist until the next `usePins` poll (up to 4s), so there's
+    // nothing for the focus to open — the map drifts but your card never opens.
+    // Seeding it means the marker mounts this render, and the focus opens it.
+    qc.setQueryData<Pin[]>(["pins"], (old) => {
+      const list = old ?? [];
+      return list.some((p) => p.id === pin.id) ? list : [pin, ...list];
+    });
+    // We're focusing on the fresh pin right here, so don't let the on-load
+    // auto-focus effect fire a second, redundant fly once the pin streams in.
+    didInitFocus.current = true;
     setMyPinId(pin.id);
     setDrop((d) => ({ seq: d.seq + 1, dx: diagnosis(pin.id) })); // fire the DROPPED celebration
     focusOn({ id: pin.id, lat: pin.lat, lng: pin.lng });
