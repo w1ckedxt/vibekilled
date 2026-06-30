@@ -5,13 +5,15 @@
 
 ---
 
-## STATUS — 29 jun 2026
+## STATUS — 30 jun 2026
 🟢 **LIVE** op https://vibekilled.rip (+ vibekilled.vercel.app)
 Volledige feature-set draait in productie. Git gesynced & gepusht.
-Nieuw (29 jun): **campfire host-welkom**, **grotere feed-vlaggen** (van-land→naar-land), **admin-stats echt-only** (publiek houdt de ambient-pomp), **map vliegt live naar nieuwe échte down**, en **notificatie-permission meteen bij landen**.
+Nieuw (30 jun): **durable anonieme identiteit** — server-set first-party cookie (`vk_uid`, via Next 16 `proxy.ts`) + localStorage-mirror zodat het anonieme profiel (kills/medals/score/streak) over bezoeken héén opbouwt en Safari/iOS-ITP-wissen overleeft; naam nu deterministisch uit het id.
+Eerder (29 jun): **campfire host-welkom**, **grotere feed-vlaggen** (van-land→naar-land), **admin-stats echt-only** (publiek houdt de ambient-pomp), **map vliegt live naar nieuwe échte down**, en **notificatie-permission meteen bij landen**.
 Eerder (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld) + **resurrectie-notificaties** (browser-permissie ná de pin-drop).
 
 ## ACTIVE WORK / NEXT
+- [x] **Durable anonieme identiteit** — `proxy.ts` zet `vk_uid` als server-cookie (~400d, sliding); `identity.ts` localStorage-first + cookie-mirror, naam deterministisch uit id. Profiel bouwt nu op over bezoeken, ITP-proof
 - [x] Campfire **host-welkom** (lokaal per bezoeker, scrollt weg, weg na 30s) — geen flood bij anderen
 - [x] Feed-vlaggen **groter & duidelijker** (22px + gouden van-land→naar-land pijl)
 - [x] Stats: publiek houdt ambient-pomp, **admin = alleen echte cijfers** (`realActive()`)
@@ -44,7 +46,7 @@ Eerder (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld)
 | Map | react-leaflet + CartoDB dark tiles (gratis, geen key) |
 | Database | **Upstash Redis** (Vercel Marketplace) — géén Supabase |
 | Data | TanStack Query (polling) |
-| State | localStorage (geen accounts) |
+| State | localStorage + durable `vk_uid`-cookie (server-set via `proxy.ts`); geen accounts |
 | Deploy | Vercel, **manueel via `vercel --prod`** (geen GitHub auto-deploy) |
 
 ## FEATURES (af)
@@ -52,6 +54,7 @@ Eerder (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld)
 - **Begrensde wereld**: één wereld (maxBounds + noWrap, minZoom 3), geen oneindig herhalen; markers memoized + popup opent 1×/focus (geen random map-verspringen)
 - **Grote ronde "I've been hit" CTA** (💀+⚔️, "rate-limited? BAM"); nieuwe kills → zachte auto-pan (uit terwijl je zelf down bent)
 - Kill-flow + privacy-jitter + last words (gemodereerd: geen links/haat, scheldwoorden ok)
+- **Anoniem profiel dat opbouwt**: identiteit verankerd in een server-set first-party cookie (`vk_uid`, Next 16 `proxy.ts`, ~400d sliding) + localStorage-mirror; `identity.ts` reconciliëert localStorage-first (bestaande profielen blijven) en valt terug op de cookie als localStorage gewist is (Safari/iOS ITP, private mode). Naam deterministisch uit het id, dus een wipe geeft dezelfde alias terug. Geen accounts, geen PII
 - Anti-abuse: 1 actieve pin/user + 3u cooldown; rate limits (kills/reacties/chat)
 - Reacties: Sympathy (down) / Good4U (resurrected) / 🤝 handshake; spectaculaire links-FX
 - **Campfire of Hope**: chat vast aan je pin-kaartje, alleen tijdens timer, alleen vanaf join, "X warming up"
@@ -80,5 +83,6 @@ Eerder (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld)
 - API: `/api/pins`(+`/[id]`,`/react`), `/feed`, `/stats`, `/leaderboard`, `/me`, `/chat`(+`/join`), `/presence`, `/admin/stats`
 
 ## ARCHIEF
+- 30 jun 2026: durable anonieme identiteit — server-set `vk_uid`-cookie (`proxy.ts`) + localStorage-mirror, deterministische naam; profiel overleeft Safari/iOS-ITP-wissen (zie `/plan/session-2026-06-30.md`)
 - 25 jun 2026: van 0 → volledige live hub gebouwd (zie `/plan/session-2026-06-25.md`)
 - 26 jun 2026: stealth admin chat, ronde kill-CTA, map random-refresh/glitch fix + begrensde wereld (zie `/plan/session-2026-06-26.md`)
