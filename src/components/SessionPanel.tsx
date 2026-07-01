@@ -8,7 +8,7 @@ import { celebrate } from "@/lib/celebrate";
 import { ShareButton } from "./ShareButton";
 import { TouchGrassQuest } from "./TouchGrassQuest";
 import { ResurrectionNotify } from "./ResurrectionNotify";
-import { LolReads } from "./LolReads";
+import { Campfire } from "./Campfire";
 import { diagnosis } from "@/lib/lore";
 
 // Your own card while you're down: a big live countdown + share. Incoming love
@@ -103,7 +103,9 @@ export function SessionPanel({
         🧾 Get your receipt
       </a>
     </div>
-    {!resurrected && <LolReads />}
+    {/* Your arcade behind the wall — shows the instant you're down, right here on
+        your card (no map popup needed): Tetris + LOLReads. */}
+    {!resurrected && <Campfire myPinId={pin.id} myProvider={pin.provider} />}
     </>
   );
 }

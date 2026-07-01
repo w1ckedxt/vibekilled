@@ -201,6 +201,9 @@ export default function Home() {
     // auto-focus effect fire a second, redundant fly once the pin streams in.
     didInitFocus.current = true;
     setMyPinId(pin.id);
+    // Pop the mobile sheet open so your card + Campfire (Tetris, stats) is right
+    // there the instant you drop — no hunting for a "show panels" toggle.
+    setSheetOpen(true);
     setDrop((d) => ({ seq: d.seq + 1, dx: diagnosis(pin.id) })); // fire the DROPPED celebration
     focusOn({ id: pin.id, lat: pin.lat, lng: pin.lng });
   }
