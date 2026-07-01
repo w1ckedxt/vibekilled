@@ -61,6 +61,9 @@ export function useMyPin(id: string | null) {
     queryFn: () => fetchPin(id as string),
     enabled: Boolean(id),
     refetchInterval: 3000,
+    // Keep polling YOUR pin even when the tab is backgrounded, so incoming
+    // sympathy / Good4U can fire a browser notification while you're off coding.
+    refetchIntervalInBackground: true,
   });
 }
 

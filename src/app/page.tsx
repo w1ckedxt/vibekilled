@@ -21,6 +21,7 @@ import { LiveFeed } from "@/components/LiveFeed";
 import { MedalsPanel } from "@/components/MedalsPanel";
 import { ProviderFilter } from "@/components/ProviderFilter";
 import { ReactionFX } from "@/components/ReactionFX";
+import { ReactionNotify } from "@/components/ReactionNotify";
 import { SessionPanel } from "@/components/SessionPanel";
 import { ShareButton } from "@/components/ShareButton";
 import { StatsBar } from "@/components/StatsBar";
@@ -354,6 +355,9 @@ export default function Home() {
       <KillModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={onCreated} />
       <DropFlash seq={drop.seq} diagnosis={drop.dx} />
       <ReactionFX />
+      {/* Backgrounded-tab pings for incoming sympathy / Good4U while you're down.
+          Kept at the page root so it survives a collapsed mobile sheet. */}
+      {down && <ReactionNotify myPinId={myPinId} />}
       <LandingNotify />
       <Toaster />
     </main>
