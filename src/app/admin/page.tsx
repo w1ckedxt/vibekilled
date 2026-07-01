@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { provider } from "@/lib/providers";
 import { flagEmoji } from "@/lib/geo";
-import { devName } from "@/lib/names";
 
 interface AdminEvent {
   id: string;
-  type: "land" | "kill" | "chat" | "good4u" | "sympathy" | "handshake" | "resurrection" | "tetris";
+  type: "land" | "kill" | "good4u" | "sympathy" | "handshake" | "resurrection" | "tetris";
   name?: string;
   provider?: string;
   country?: string;
@@ -31,7 +30,6 @@ interface AdminStats {
   days: Record<string, number>;
   leaderboard: { rank: number; name: string; score: number; good4u: number; sympathy: number }[];
   events: AdminEvent[];
-  chat: { id: string; name: string; provider: string; text: string; at: number; staff?: boolean; bot?: boolean }[];
   tetrisPlays: number;
   tetrisHigh: number;
 }
@@ -39,7 +37,6 @@ interface AdminStats {
 const EVENT_META: Record<AdminEvent["type"], { icon: string; label: string; color: string }> = {
   land: { icon: "🛬", label: "landed on the page", color: "text-white/50" },
   kill: { icon: "💀", label: "tapped I've been hit", color: "text-coral" },
-  chat: { icon: "💬", label: "chatted", color: "text-ember" },
   good4u: { icon: "💛", label: "gave Good4U", color: "text-gold" },
   sympathy: { icon: "🫂", label: "gave sympathy", color: "text-emerald-400" },
   handshake: { icon: "🤝", label: "said I hear you", color: "text-electric" },
@@ -69,11 +66,6 @@ export default function AdminPage() {
   const [data, setData] = useState<AdminStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [chatText, setChatText] = useState("");
-  // The alias the staged message posts under. Blank → the server rolls a random
-  // dev name. Kept after sending so you can hold a persona across a few messages.
-  const [chatName, setChatName] = useState("");
-  const [posting, setPosting] = useState(false);
 
   useEffect(() => {
     const t = getCookie(COOKIE);
@@ -122,47 +114,6 @@ export default function AdminPage() {
     setToken("");
     setData(null);
   }
-
-  // Seed the campfire as a regular-looking dev (random or chosen alias), no badge.
-  const sendAsDev = useCallback(async () => {
-    const t = chatText.trim();
-    if (!t || posting) return;
-    setPosting(true);
-    try {
-      const res = await fetch("/api/admin/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": token },
-        body: JSON.stringify({ text: t, name: chatName.trim() }),
-      });
-      if (res.ok) {
-        setChatText(""); // keep the name so the persona can carry the conversation
-        load(token);
-      } else {
-        setError((await res.json().catch(() => ({}))).message ?? "Could not send.");
-      }
-    } catch {
-      setError("Network error.");
-    } finally {
-      setPosting(false);
-    }
-  }, [chatText, chatName, posting, token, load]);
-
-  // Remove any campfire message by id (moderation).
-  const deleteMsg = useCallback(
-    async (id: string) => {
-      try {
-        const res = await fetch("/api/admin/chat", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json", "x-admin-token": token },
-          body: JSON.stringify({ id }),
-        });
-        if (res.ok) load(token);
-      } catch {
-        setError("Network error.");
-      }
-    },
-    [token, load],
-  );
 
   if (!token) {
     return (
@@ -219,7 +170,7 @@ export default function AdminPage() {
         </div>
 
         {/* Prominent live activity (journey) */}
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="mt-5">
           <Card title="🌊 Live activity · the journey">
             <div className="vk-scroll max-h-80 space-y-1 overflow-y-auto pr-1">
               {data?.events?.map((e) => {
@@ -243,69 +194,6 @@ export default function AdminPage() {
                 );
               })}
               {!data?.events?.length && <Empty />}
-            </div>
-          </Card>
-
-          <Card title="🔥 Campfire · seed as a dev">
-            <div className="vk-scroll max-h-72 space-y-2 overflow-y-auto pr-1">
-              {[...(data?.chat ?? [])].reverse().map((m) => (
-                <div key={m.id} className="group flex items-start gap-2 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <span className="font-semibold text-white/70">{m.name}</span>
-                    {m.staff && (
-                      <span
-                        title="Posted by you — invisible to visitors"
-                        className="ml-1.5 rounded bg-electric/15 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-electric"
-                      >
-                        you
-                      </span>
-                    )}
-                    <span className="ml-2 text-xs text-white/25">{rel(m.at)}</span>
-                    <p className="break-words text-white/85">{m.text}</p>
-                  </div>
-                  <button
-                    onClick={() => deleteMsg(m.id)}
-                    title="Delete message"
-                    className="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-white/25 opacity-0 transition hover:bg-coral/15 hover:text-coral group-hover:opacity-100"
-                  >
-                    🗑
-                  </button>
-                </div>
-              ))}
-              {!data?.chat?.length && <Empty />}
-            </div>
-            <div className="mt-3 space-y-1.5 border-t border-white/8 pt-3">
-              <div className="flex gap-1.5">
-                <input
-                  value={chatName}
-                  onChange={(e) => setChatName(e.target.value.slice(0, 40))}
-                  placeholder="alias (blank = random)"
-                  className="flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-white placeholder:text-white/30 focus:border-electric/50 focus:outline-none"
-                />
-                <button
-                  onClick={() => setChatName(devName())}
-                  title="Roll a random alias"
-                  className="rounded-lg border border-white/10 px-2.5 py-1.5 text-sm transition hover:bg-white/5"
-                >
-                  🎲
-                </button>
-              </div>
-              <div className="flex gap-1.5">
-                <input
-                  value={chatText}
-                  onChange={(e) => setChatText(e.target.value.slice(0, 200))}
-                  onKeyDown={(e) => e.key === "Enter" && sendAsDev()}
-                  placeholder={`Message as ${chatName.trim() || "a random dev"}…`}
-                  className="flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-ember/50 focus:outline-none"
-                />
-                <button
-                  onClick={sendAsDev}
-                  disabled={posting || !chatText.trim()}
-                  className="rounded-lg bg-ember/20 px-3 py-2 text-sm font-bold text-ember transition hover:bg-ember/30 disabled:opacity-40"
-                >
-                  Send
-                </button>
-              </div>
             </div>
           </Card>
         </div>

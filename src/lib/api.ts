@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatMessage, FeedEvent, GlobalStats, Pin, ProviderId } from "./types";
+import type { FeedEvent, GlobalStats, Pin, ProviderId } from "./types";
 import type { Achievement } from "./achievements";
 import { getUserId } from "./identity";
 
@@ -82,26 +82,6 @@ export interface LeaderRow {
 
 export async function fetchLeaderboard(): Promise<LeaderRow[]> {
   return (await jsonOrThrow<{ leaderboard: LeaderRow[] }>(await fetch("/api/leaderboard", { cache: "no-store" }))).leaderboard;
-}
-
-export async function fetchChat(userId: string): Promise<ChatMessage[]> {
-  return (
-    await jsonOrThrow<{ messages: ChatMessage[] }>(
-      await fetch(`/api/chat?userId=${encodeURIComponent(userId)}`, { cache: "no-store" }),
-    )
-  ).messages;
-}
-
-export async function sendChat(payload: { userId: string; name: string; provider: ProviderId; text: string }): Promise<ChatMessage> {
-  return (
-    await jsonOrThrow<{ message: ChatMessage }>(
-      await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }),
-    )
-  ).message;
 }
 
 export interface MeStats {

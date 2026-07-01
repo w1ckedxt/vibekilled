@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { fetchChat, fetchFeed, fetchLeaderboard, fetchMe, fetchPin, fetchPins, fetchStats, sendHeartbeat } from "./api";
+import { fetchFeed, fetchLeaderboard, fetchMe, fetchPin, fetchPins, fetchStats, sendHeartbeat } from "./api";
 import { getUserId } from "./identity";
 
 export function usePins() {
@@ -19,10 +19,6 @@ export function useStats() {
 
 export function useLeaderboard() {
   return useQuery({ queryKey: ["leaderboard"], queryFn: fetchLeaderboard, refetchInterval: 8000 });
-}
-
-export function useChat(enabled = true) {
-  return useQuery({ queryKey: ["chat"], queryFn: () => fetchChat(getUserId()), refetchInterval: 4000, enabled });
 }
 
 export function useMe(userId: string | null) {

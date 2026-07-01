@@ -71,28 +71,9 @@ export interface GlobalStats {
   lastKill?: LastKill | null;
 }
 
-export interface ChatMessage {
-  id: string;
-  name: string;
-  provider: ProviderId;
-  text: string;
-  at: number;
-  /** Absolute epoch ms when the author's wall timer ends, so the campfire can
-   *  show each person's live "time left". Snapshot of their pin at post time. */
-  recoverAt?: number;
-  /** Internal only — an admin-authored message posing as a regular dev. Renders
-   *  exactly like a normal user (no badge); the public chat API strips this flag
-   *  so visitors can't tell it's staged. Only the admin dashboard reads it, to
-   *  mark its own staged messages. */
-  staff?: boolean;
-  /** Internal only — true for ambient bot chatter. Never surfaced to users. */
-  bot?: boolean;
-}
-
 export type AdminEventType =
   | "land"
   | "kill"
-  | "chat"
   | "good4u"
   | "sympathy"
   | "handshake"

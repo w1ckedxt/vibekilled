@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { redis, hasRedis } from "./redis";
-import type { AdminEvent, ChatMessage, FeedEvent, FeedEventType, GlobalStats, LastKill, Pin, ProviderId } from "./types";
+import type { AdminEvent, FeedEvent, FeedEventType, GlobalStats, LastKill, Pin, ProviderId } from "./types";
 import { achievementForCount, type Achievement } from "./achievements";
 import { nearbyPoint, obfuscate, placeLabel } from "./geo";
 import { devName } from "./names";
@@ -45,8 +45,7 @@ const K = {
   statCountries: "vk:stat:countries", // hash cc -> count
   statDays: "vk:stat:days", // hash YYYY-MM-DD -> count
   presence: "vk:presence", // zset sessionId -> last-seen ms
-  chatPresence: "vk:chatpresence", // zset userId -> last-seen ms (LIVE IN CHAT)
-  chat: "vk:chat", // list of JSON ChatMessage (Campfire of Hope)
+  chatPresence: "vk:chatpresence", // zset userId -> last-seen ms (around the campfire)
   events: "vk:events", // list of JSON AdminEvent (admin journey feed)
   lbScore: "vk:lb:score", // zset userId -> good4u + sympathy (all-time)
   lbName: "vk:lb:name", // hash userId -> latest alias
@@ -553,43 +552,9 @@ function safeParse(s: string): FeedEvent | null {
   }
 }
 
-// ── Campfire of Hope (anonymous chat) ─────────────────────────────────────────
-const CHAT_MAX = 80;
-
-export async function postChat(msg: Omit<ChatMessage, "id" | "at">, userId?: string): Promise<ChatMessage> {
-  const full: ChatMessage = { ...msg, id: nanoid(8), at: Date.now() };
-  if (!hasRedis) return full;
-  await redis.lpush(K.chat, JSON.stringify(full));
-  await redis.ltrim(K.chat, 0, CHAT_MAX - 1);
-  // Only real users count toward medals + the admin journey (bots are silent there).
-  if (userId) {
-    await redis.hincrby(K.comments, userId, 1);
-    await adminLog({ type: "chat", name: msg.name, provider: msg.provider, text: msg.text });
-  }
-  return full;
-}
-
-/** Remove a single campfire message by id (admin moderation). Rewrites the list
- *  preserving order. Returns true if a message was actually removed. */
-export async function deleteChatMessage(id: string): Promise<boolean> {
-  if (!hasRedis) return false;
-  const raw = (await redis.lrange<string | ChatMessage>(K.chat, 0, -1)) ?? [];
-  const kept: (string | ChatMessage)[] = [];
-  let removed = false;
-  for (const r of raw) {
-    const o = typeof r === "string" ? (() => { try { return JSON.parse(r) as ChatMessage; } catch { return null; } })() : r;
-    if (o && o.id === id) { removed = true; continue; }
-    kept.push(r);
-  }
-  if (removed) {
-    await redis.del(K.chat);
-    if (kept.length) await redis.rpush(K.chat, ...kept.map((x) => (typeof x === "string" ? x : JSON.stringify(x))));
-  }
-  return removed;
-}
-
-// ── Campfire presence ("LIVE IN CHAT" = real humans) + ambient bots ──────────
-/** Register/refresh campfire presence; returns how many real humans are around the fire. */
+// ── Campfire presence ("X around the fire" = real humans behind the wall) ─────
+/** Register/refresh campfire presence; returns how many real humans are around
+ *  the fire right now. Powers the live count on your card — no chat involved. */
 export async function joinCampfire(userId: string): Promise<number> {
   if (!hasRedis) return 0;
   const now = Date.now();
@@ -602,22 +567,6 @@ export async function chatLiveCount(): Promise<number> {
   if (!hasRedis) return 0;
   await redis.zremrangebyscore(K.chatPresence, 0, Date.now() - PRESENCE_TTL_MS);
   return Number((await redis.zcard(K.chatPresence)) ?? 0);
-}
-
-export async function getChat(): Promise<ChatMessage[]> {
-  if (!hasRedis) return [];
-  const raw = (await redis.lrange<string | ChatMessage>(K.chat, 0, CHAT_MAX - 1)) ?? [];
-  return raw
-    .map((r) => {
-      if (typeof r !== "string") return r;
-      try {
-        return JSON.parse(r) as ChatMessage;
-      } catch {
-        return null;
-      }
-    })
-    .filter((x): x is ChatMessage => Boolean(x))
-    .reverse(); // oldest first for chat display
 }
 
 // ── Campfire Tetris (kill time behind the wall) ───────────────────────────────
@@ -794,7 +743,6 @@ export interface AdminStats {
   days: Record<string, number>;
   leaderboard: LeaderRow[];
   events: AdminEvent[];
-  chat: ChatMessage[];
   tetrisPlays: number;
   tetrisHigh: number;
 }
@@ -807,9 +755,9 @@ function toNumMap(h: Record<string, unknown> | null): Record<string, number> {
 
 export async function getAdminStats(): Promise<AdminStats> {
   if (!hasRedis) {
-    return { online: 0, liveInChat: 0, totalUsers: 0, kills: 0, resurrections: 0, active: 0, providers: {}, countries: {}, days: {}, leaderboard: [], events: [], chat: [], tetrisPlays: 0, tetrisHigh: 0 };
+    return { online: 0, liveInChat: 0, totalUsers: 0, kills: 0, resurrections: 0, active: 0, providers: {}, countries: {}, days: {}, leaderboard: [], events: [], tetrisPlays: 0, tetrisHigh: 0 };
   }
-  const [online, liveInChat, totalUsers, base, downReal, providers, countries, days, leaderboard, events, chat, tetrisPlays, tetrisHigh] = await Promise.all([
+  const [online, liveInChat, totalUsers, base, downReal, providers, countries, days, leaderboard, events, tetrisPlays, tetrisHigh] = await Promise.all([
     onlineCount(),
     chatLiveCount(),
     redis.scard(K.users),
@@ -820,7 +768,6 @@ export async function getAdminStats(): Promise<AdminStats> {
     redis.hgetall(K.statDays),
     getLeaderboard(20),
     getEvents(),
-    getChat(),
     redis.get<number>(K.tetrisPlays),
     redis.get<number>(K.tetrisHigh),
   ]);
@@ -837,7 +784,6 @@ export async function getAdminStats(): Promise<AdminStats> {
     days: toNumMap(days),
     leaderboard,
     events,
-    chat,
     tetrisPlays: Number(tetrisPlays ?? 0),
     tetrisHigh: Number(tetrisHigh ?? 0),
   };
