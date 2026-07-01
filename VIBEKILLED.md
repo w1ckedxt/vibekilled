@@ -5,10 +5,11 @@
 
 ---
 
-## STATUS — 30 jun 2026
+## STATUS — 1 jul 2026
 🟢 **LIVE** op https://vibekilled.rip (+ vibekilled.vercel.app)
 Volledige feature-set draait in productie. Git gesynced & gepusht.
-Nieuw (30 jun, sessie 2): **Campfire = arcade** — de chat achter de muur is vervangen door een **volledig speelbare Tetris** (`components/Tetris.tsx`: 7-bag, wall-kicks, ghost, soft/hard-drop, levels, game-over, toetsenbord **én** touch-knoppen) + de **LOLReads**-bibliotheek, allebei als naar-`<body>`-geportalde overlay (escapet de Leaflet-popup-transform). Admin ziet nu **🎮 Tetris-plays + 🏆 high score** en "played Tetris · scored N" in de journey. Plus: **StartupBar.co**-widget in de `<head>` (literal `<script>` via React 19-hoisting) voor de directory-listing.
+Nieuw (1 jul): **eigen card = je universum achter de muur, opent INSTANT**. De arcade (Campfire of Hope-presence + **Tetris** + **LOLReads**) leeft nu **enkel in je eigen map-popup**, die **zichzelf opent op mount** (de marker `openPopup()`t van binnenuit → geen ref/timing-race meer) zodat 'ie meteen na een drop én bij elke reload verschijnt. Verder: **browser-notificaties bij inkomende sympathy/Good4U/🤝** (`fireReaction`, achtergrond-tab, `useMyPin` pollt door in background), **"X also behind the wall"-badge** (persoon-SVG + pulse) op elke card, admin toont **geven-land → ontvangst-land** (`🇳🇱 → 🇧🇷`) + **Tetris high-score per dev op de Vibe Kings-leaderboard**. Opgeruimd: **StartupBar-widget eruit** en **alle dode chat-code verwijderd** (routes/store/api/hooks/types/admin) — presence (`joinCampfire`/"around the fire") blijft.
+Eerder (30 jun, sessie 2): Campfire → arcade (volledig speelbare Tetris + LOLReads i.p.v. chat), admin Tetris-stats.
 Nieuw (30 jun): **durable anonieme identiteit** — server-set first-party cookie (`vk_uid`, via Next 16 `proxy.ts`) + localStorage-mirror zodat het anonieme profiel (kills/medals/score/streak) over bezoeken héén opbouwt en Safari/iOS-ITP-wissen overleeft; naam nu deterministisch uit het id.
 Eerder (29 jun): **campfire host-welkom**, **grotere feed-vlaggen** (van-land→naar-land), **admin-stats echt-only** (publiek houdt de ambient-pomp), **map vliegt live naar nieuwe échte down**, en **notificatie-permission meteen bij landen**.
 Eerder (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld) + **resurrectie-notificaties** (browser-permissie ná de pin-drop).
@@ -27,9 +28,13 @@ Eerder (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld)
 - [ ] Op telefoon checken: arrival-landing + feel (geen jank), ronde "I've been hit" CTA vs bottom-sheet
 - [ ] Notificatie-flow live testen op echt device (permissie-kaartje ná drop + ping op recover)
 - [ ] Fase 2 optie: Web Push (service worker + VAPID) voor closed-tab resurrectie-notificaties
-- [x] Campfire = arcade: chat eruit, **Tetris + LOLReads** erin; overlays geportald naar `<body>` (popup-transform-proof). Admin telt Tetris-plays + high score
+- [x] Campfire = arcade: chat eruit, **Tetris + LOLReads** erin (overlays geportald naar `<body>`). Zit nu **enkel in je eigen map-popup**, die **zichzelf instant opent** (marker self-open op mount)
+- [x] **Reactie-notificaties** (sympathy/Good4U/🤝) via `fireReaction` + `ReactionNotify` (altijd gemount) + `useMyPin` background-polling
+- [x] **"X also behind the wall"-badge** (persoon-SVG + pulse) op elke card
+- [x] Admin: **geven-land → ontvangst-land** in de journey + **Tetris high-score per dev op de leaderboard**
+- [x] **StartupBar-widget verwijderd** + **alle dode chat-code opgeruimd** (presence blijft)
 - [ ] Campfire-arcade op mobiel checken: Tetris-touch-knoppen + board-grootte in de Leaflet-popup, LOLReads-overlay
-- [ ] StartupBar.co: na deploy "Check now" → groen, dan **Pay $9.99 & submit**
+- [ ] Reactie-/resurrectie-notificaties live testen op echt device (achtergrond-tab)
 - [ ] Vercel WAF/BotID bij echte traffic-piek
 - [ ] Aparte test-database (nu deelt lokaal de prod-Redis)
 - [ ] Tunen na live-gevoel: ambient floor/caps/feed-kansen in `lib/ambient.ts`
@@ -57,13 +62,13 @@ Eerder (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld)
 - **Grote ronde "I've been hit" CTA** (💀+⚔️, "rate-limited? BAM"); nieuwe kills → zachte auto-pan (uit terwijl je zelf down bent)
 - Kill-flow + privacy-jitter + last words (gemodereerd: geen links/haat, scheldwoorden ok)
 - **Anoniem profiel dat opbouwt**: identiteit verankerd in een server-set first-party cookie (`vk_uid`, Next 16 `proxy.ts`, ~400d sliding) + localStorage-mirror; `identity.ts` reconciliëert localStorage-first (bestaande profielen blijven) en valt terug op de cookie als localStorage gewist is (Safari/iOS ITP, private mode). Naam deterministisch uit het id, dus een wipe geeft dezelfde alias terug. Geen accounts, geen PII
-- Anti-abuse: 1 actieve pin/user + 3u cooldown; rate limits (kills/reacties/chat)
-- Reacties: Sympathy (down) / Good4U (resurrected) / 🤝 handshake; spectaculaire links-FX
-- **Campfire of Hope (arcade)**: hangt vast aan je pin-kaartje, alleen tijdens je timer. Join-beat + presence ("X around the fire") + countdown, daaronder een **room-menu**: 🎮 **Tetris** (volledig speelbaar, eigen overlay) en 📚 **LOLReads**. Géén chat meer — niks te doen dan wachten, dus speel/lees je de tijd weg. Beide overlays geportald naar `<body>` (popup-transform-proof)
-- 🎮 **Campfire Tetris** (`components/Tetris.tsx`): klassiek 10×20, 7-bag randomizer, matrix-rotatie + wall-kicks, ghost-piece, soft/hard-drop, line-clears + score/level/game-over. Game-state in één ref (rAF-loop, geen per-frame React-state; snapshot→state alleen bij zichtbare verandering). Toetsenbord (← → ↑ ↓ space/p) **en** on-screen touch-knoppen. Meldt elke gespeelde game (best-effort) aan `/api/tetris` → admin
-- **Medals** (30+, klik=bubbel, Share position), **Vibe Kings** leaderboard, **Globe of Pain** feed (max 50)
-- **Admin** (`/admin`): online/around-the-fire, totals, providers, landen, grafiek, journey-feed, chat-monitor, **🎮 Tetris-plays + 🏆 high score** (gated op actieve pin = anti-abuse)
-- **Stealth admin chat**: host post als willekeurige/zelfgekozen dev-alias (geen "Sally"/badge); interne `staff`-vlag gestript uit publieke API; "you"-tag + 🎲 alias in dashboard
+- Anti-abuse: 1 actieve pin/user + 3u cooldown; rate limits (kills/reacties/tetris)
+- Reacties: Sympathy (down) / Good4U (resurrected) / 🤝 handshake; spectaculaire links-FX + **browser-notificatie in de achtergrond-tab** (`fireReaction` + `ReactionNotify`, `useMyPin` pollt door in background)
+- **Je eigen card = je universum achter de muur** (de map-popup van je eigen pin, `PinPopup isMine`): **opent zichzelf INSTANT** (marker `openPopup()` op mount → geen ref/timing-race) bij drop én reload. Bovenaan de arcade: **Campfire of Hope**-presence ("X around the fire") + 🎮 **Tetris** + 📚 **LOLReads**. Géén chat — niks te doen dan wachten, dus speel/lees je de tijd weg. Popup scrollt (max-h 70vh) zodat niks wordt afgekapt
+- 🎮 **Campfire Tetris** (`components/Tetris.tsx`): klassiek 10×20, 7-bag randomizer, matrix-rotatie + wall-kicks, ghost-piece, soft/hard-drop, line-clears + score/level/game-over. Game-state in één ref (rAF-loop, geen per-frame React-state; snapshot→state alleen bij zichtbare verandering). Toetsenbord (← → ↑ ↓ space/p) **en** on-screen touch-knoppen. Meldt elke game (best-effort) aan `/api/tetris` → admin + **persoonlijke high-score op de leaderboard**
+- 👤 **"X also behind the wall"** — op elke card een persoon-SVG (geen emoji) met pulse + live count van iedereen die nu down is (`stats.active`), zodat je je niet alleen voelt
+- **Medals** (30+, klik=bubbel, Share position), **Vibe Kings** leaderboard (met **🎮 Tetris-high per dev**), **Globe of Pain** feed (max 50)
+- **Admin** (`/admin`): online/around-the-fire, totals, providers, landen, grafiek, journey-feed met **geven-land → ontvangst-land** (`🇳🇱 → 🇧🇷`), **🎮 Tetris-plays + 🏆 high score**-tiles + Tetris-high op de leaderboard (gated op actieve pin = anti-abuse)
 - Responsive (inklapbare mobiele sheet), 💀 favicon, "powered by CynicalSally"
 - **Lore-laag**: deterministische absurde 🩺 diagnose + 🪦 eulogie per pin (`lib/lore.ts`), satirische live **Wall Status**-ticker, 🌱 **Touch-grass quest** per wachttijd, DROPPED-flash toont je "Cause", share-tekst draagt je diagnose
 - 🧾 **Dev Down Receipt** — deelbare kassabon-PNG per pin (`next/og`, `/api/receipt/[id]`)
@@ -80,14 +85,16 @@ Eerder (28 jun): wereldwijde **ambient "down devs"**-floor (kaart altijd gevuld)
 - `VIBEKILLED_DEV=1` / `NEXT_PUBLIC_VK_DEV=1` — **alleen lokaal** (.env.local), bypass lock + reset-knop
 
 ## ARCHITECTUUR (kort)
-- `src/lib/store.ts` — alle Redis-ops (pins=hash+TTL, zset-index self-prune, feed/chat/events lists, counters, leaderboard, presence)
+- `src/lib/store.ts` — alle Redis-ops (pins=hash+TTL, zset-index self-prune, feed/events lists, counters, leaderboard, campfire-presence, tetris-stats)
 - `src/lib/moderation.ts` — links strippen + haatspeech weigeren
 - `src/lib/achievements.ts` — medals over meerdere metrics
-- API: `/api/pins`(+`/[id]`,`/react`), `/feed`, `/stats`, `/leaderboard`, `/me`, `/chat`(+`/join`), `/presence`, `/tetris`, `/admin/stats`
-- `src/components/Tetris.tsx` — zelfstandige game-engine (pure helpers + 1 component), portal-overlay; `recordTetris()` in store + `/api/tetris`-route + `reportTetris()` client-fn
+- API: `/api/pins`(+`/[id]`,`/react`), `/feed`, `/stats`, `/leaderboard`, `/me`, `/chat/join` (presence), `/presence`, `/tetris`, `/admin/stats`
+- `src/components/Tetris.tsx` — zelfstandige game-engine (pure helpers + 1 component), portal-overlay; `recordTetris()` in store (plays + globale + per-user high) + `/api/tetris`-route + `reportTetris()` client-fn
+- `src/components/ReactionNotify.tsx` — altijd-gemounte watcher die `fireReaction` afvuurt op inkomende sympathy/Good4U/🤝 (achtergrond-tab)
 
 ## ARCHIEF
-- 30 jun 2026 (sessie 2): Campfire → arcade (volledig speelbare **Tetris** + LOLReads, chat verwijderd), admin Tetris-stats, StartupBar-widget in `<head>` (zie `/plan/session-2026-06-30.md`)
+- 1 jul 2026 (sessie 3): eigen-card self-open (instant), reactie-notificaties, "X also behind the wall"-badge, admin geven→ontvangst-land + Tetris-high op leaderboard, StartupBar weg, **alle dode chat-code opgeruimd** (zie `/plan/session-2026-06-30.md`)
+- 30 jun 2026 (sessie 2): Campfire → arcade (volledig speelbare **Tetris** + LOLReads, chat verwijderd uit UI), admin Tetris-stats, StartupBar-widget in `<head>` (zie `/plan/session-2026-06-30.md`)
 - 30 jun 2026: durable anonieme identiteit — server-set `vk_uid`-cookie (`proxy.ts`) + localStorage-mirror, deterministische naam; profiel overleeft Safari/iOS-ITP-wissen (zie `/plan/session-2026-06-30.md`)
 - 25 jun 2026: van 0 → volledige live hub gebouwd (zie `/plan/session-2026-06-25.md`)
 - 26 jun 2026: stealth admin chat, ronde kill-CTA, map random-refresh/glitch fix + begrensde wereld (zie `/plan/session-2026-06-26.md`)
