@@ -8,7 +8,7 @@ import { flagEmoji } from "@/lib/geo";
 import { reactPin } from "@/lib/api";
 import { hasReacted, markReacted } from "@/lib/identity";
 import { formatCountdown, timeAgo } from "@/lib/time";
-import { useNow } from "@/lib/hooks";
+import { useNow, useStats } from "@/lib/hooks";
 import { CountUp } from "./CountUp";
 import { Campfire } from "./Campfire";
 import { FireworkIcon } from "./FireworkIcon";
@@ -17,6 +17,8 @@ import { diagnosis, eulogy } from "@/lib/lore";
 export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
   const meta = provider(pin.provider);
   const now = useNow();
+  const { data: stats } = useStats();
+  const waiting = stats?.active ?? 0;
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const [local, setLocal] = useState({ good4u: pin.good4u, sympathy: pin.sympathy });
@@ -107,6 +109,9 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
         </div>
       )}
 
+      {/* You're not alone behind the wall — live count of everyone waiting it out. */}
+      <WaitingBadge count={waiting} />
+
       {!isMine && (
         <div className="mt-2.5">
           {resurrected ? (
@@ -140,6 +145,25 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
           <Campfire myPinId={pin.id} myProvider={pin.provider} />
         </div>
       )}
+    </div>
+  );
+}
+
+// "You're not alone" — a real person glyph (SVG, never an emoji) with a live
+// pulse and the count of everyone currently waiting out the wall.
+function WaitingBadge({ count }: { count: number }) {
+  return (
+    <div className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-ember/[0.08] px-2 py-1.5">
+      <span className="relative inline-flex h-4 w-4 items-center justify-center">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ember/40" />
+        <svg viewBox="0 0 24 24" className="relative h-3.5 w-3.5 text-ember" fill="currentColor" aria-hidden="true">
+          <circle cx="12" cy="7.5" r="3.6" />
+          <path d="M12 12.6c-4.1 0-6.8 2.4-7.2 5.6-.12.92.62 1.7 1.55 1.7h11.3c.93 0 1.67-.78 1.55-1.7-.4-3.2-3.1-5.6-7.2-5.6Z" />
+        </svg>
+      </span>
+      <span className="text-[11px] font-semibold text-ember/90">
+        <span className="tabular-nums">{count.toLocaleString()}</span> also behind the wall
+      </span>
     </div>
   );
 }

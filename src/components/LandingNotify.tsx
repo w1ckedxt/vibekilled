@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { notifySupported, notifyPermission, requestNotify, landingDismissed, dismissLanding } from "@/lib/notify";
 import { toast } from "@/lib/toast";
 
-// The moment you land, offer browser notifications — framed around what you'd
-// actually want pinged: a reply at the campfire, sympathy/Good4U coming in, and
-// your resurrection. The native OS prompt still only fires on the explicit
-// "Enable" tap, so it stays gesture-safe across browsers (Safari/iOS included).
+// The moment you land, offer browser notifications — framed around the one thing
+// we actually ping for: your resurrection (see fireResurrection). The native OS
+// prompt still only fires on the explicit "Enable" tap, so it stays gesture-safe
+// across browsers (Safari/iOS included).
 // Shown once per device; reading window/localStorage is gated behind `mounted`
 // so the first render matches the server and never trips hydration.
 export function LandingNotify() {
@@ -27,7 +27,7 @@ export function LandingNotify() {
         tone: "info",
         emoji: "🔔",
         title: "Notifications on",
-        body: "We'll ping you for campfire replies, sympathy & your comeback.",
+        body: "We'll ping you the second the wall lifts and you're back.",
         ttl: 5000,
       });
     }
@@ -40,10 +40,10 @@ export function LandingNotify() {
 
   return (
     <div className="glass pointer-events-auto fixed bottom-6 left-3 z-[900] w-[300px] max-w-[calc(100vw-1.5rem)] rounded-2xl border border-electric/25 bg-electric/[0.07] p-3.5">
-      <p className="text-[13px] font-bold text-white/90">🔔 Don&apos;t miss your people</p>
+      <p className="text-[13px] font-bold text-white/90">🔔 Don&apos;t miss your comeback</p>
       <p className="mt-1 text-[12px] leading-snug text-white/60">
-        Turn on notifications and we&apos;ll ping you when someone replies at the campfire, sends you sympathy or a
-        Good4U — and the second you&apos;re resurrected.
+        Turn on notifications and we&apos;ll ping you the second the wall lifts and you&apos;re resurrected — even with
+        this tab in the background.
       </p>
       <div className="mt-2.5 flex gap-2">
         <button
