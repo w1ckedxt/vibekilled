@@ -134,27 +134,39 @@ function FocusController({
   const map = useMap();
   const flown = useRef<number>(-1);
   const opened = useRef<number>(-1);
+  const hooked = useRef<number>(-1);
 
   useEffect(() => {
     if (!focusTarget) return;
-    if (flown.current !== focusTarget.n) {
-      map.flyTo([focusTarget.lat, focusTarget.lng], 6, { duration: 1.8 });
-      flown.current = focusTarget.n;
+    const n = focusTarget.n;
+    const id = focusTarget.id;
+
+    // Snappy, dramatic fly straight to the pin.
+    if (flown.current !== n) {
+      flown.current = n;
+      map.flyTo([focusTarget.lat, focusTarget.lng], 7, { duration: 1.0 });
     }
-    if (opened.current !== focusTarget.n) {
-      const m = markerRefs.current?.get(focusTarget.id);
-      if (m) {
-        opened.current = focusTarget.n;
-        // Close whatever card was open first (e.g. the arrival "nearest dev"
-        // card, or a fresh-casualty fly-in) so the focused pin's popup is the
-        // ONLY one left — your own card can't lose to a stray open popup.
-        const t = setTimeout(() => {
-          map.closePopup();
-          m.openPopup();
-        }, 800);
-        return () => clearTimeout(t);
-      }
-      // Marker not mounted yet — let the next `pins` change retry the open.
+
+    // Open the card the INSTANT its marker exists — the optimistic cache insert
+    // means it's usually already mounted this same render, so this is "BAM, no
+    // timer". Opening while the map is still flying is fine. closePopup() first
+    // kills any arrival / stray card so yours is the only one that stays.
+    const openNow = () => {
+      const m = markerRefs.current?.get(id);
+      if (!m) return;
+      map.closePopup();
+      m.openPopup();
+      opened.current = n;
+    };
+    if (opened.current !== n) openNow();
+
+    // Re-assert once the flight settles, so the card wins any autoPan / stray
+    // popup race. Attach once per focus request, and only if it's still newest.
+    if (hooked.current !== n) {
+      hooked.current = n;
+      map.once("moveend", () => {
+        if (flown.current === n) openNow();
+      });
     }
   }, [focusTarget, pins, map, markerRefs]);
 

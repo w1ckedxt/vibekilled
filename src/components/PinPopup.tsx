@@ -10,6 +10,7 @@ import { hasReacted, markReacted } from "@/lib/identity";
 import { formatCountdown, timeAgo } from "@/lib/time";
 import { useNow } from "@/lib/hooks";
 import { CountUp } from "./CountUp";
+import { Campfire } from "./Campfire";
 import { FireworkIcon } from "./FireworkIcon";
 import { diagnosis, eulogy } from "@/lib/lore";
 
@@ -131,6 +132,14 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
       <div className="mt-2 text-center text-[11px] text-white/35">
         💛 {local.good4u} · 🫂 {local.sympathy} · 🤝 {pin.handshake} · {pin.views} 👁
       </div>
+
+      {/* YOUR card is the universe behind the wall: who's around the fire + the
+          arcade (Tetris, LOLReads). Lives only here, on your own pin. */}
+      {isMine && !resurrected && (
+        <div className="mt-3 -mx-3 -mb-3">
+          <Campfire myPinId={pin.id} myProvider={pin.provider} />
+        </div>
+      )}
     </div>
   );
 }
