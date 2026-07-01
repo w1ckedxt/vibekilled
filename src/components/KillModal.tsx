@@ -1,20 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { PROVIDER_LIST } from "@/lib/providers";
-import type { Pin, ProviderId } from "@/lib/types";
-import { createPin } from "@/lib/api";
-import {
-  addUnlocked,
-  getName,
-  getShareLocation,
-  getUserId,
-  setMyPin,
-  setName,
-  setShareLocation,
-} from "@/lib/identity";
-import { toast } from "@/lib/toast";
+import type { DropForm, ProviderId } from "@/lib/types";
+import { getName, getShareLocation, setName, setShareLocation } from "@/lib/identity";
 
 const PRESETS = [
   { label: "15m", m: 15 },
@@ -25,22 +14,18 @@ const PRESETS = [
   { label: "8h", m: 480 },
 ];
 
-export function KillModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (pin: Pin) => void }) {
-  const qc = useQueryClient();
+export function KillModal({ open, onClose, onDrop }: { open: boolean; onClose: () => void; onDrop: (form: DropForm) => void }) {
   const [provider, setProvider] = useState<ProviderId>("claude");
   const [minutes, setMinutes] = useState(60);
   const [share, setShare] = useState(false);
   const [name, setNameState] = useState("");
   const [message, setMessage] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setNameState(getName());
       setShare(getShareLocation());
-      setError(null);
     }
   }, [open]);
 
@@ -61,50 +46,20 @@ export function KillModal({ open, onClose, onCreated }: { open: boolean; onClose
     if (!on) setCoords(null);
   }
 
-  async function submit() {
-    setSubmitting(true);
-    setError(null);
+  // No await here — the page opens your card on the very next frame and confirms
+  // with the server in the background. The modal's only job is the form.
+  function submit() {
     const cleanName = name.trim() || getName();
     setName(cleanName);
-    try {
-      const res = await createPin({
-        userId: getUserId(),
-        name: cleanName,
-        provider,
-        recoveryMinutes: minutes,
-        shareLocation: share,
-        lat: coords?.lat,
-        lng: coords?.lng,
-        message: message.trim() || undefined,
-      });
-      setMyPin(res.pin.id);
-      qc.invalidateQueries({ queryKey: ["pins"] });
-      qc.invalidateQueries({ queryKey: ["feed"] });
-      qc.invalidateQueries({ queryKey: ["stats"] });
-
-      if (res.achievement) {
-        addUnlocked(res.achievement.id);
-        toast({
-          tone: "achievement",
-          emoji: res.achievement.emoji,
-          title: `Achievement: ${res.achievement.title}`,
-          body: res.achievement.blurb,
-          ttl: 7000,
-        });
-      }
-      onCreated(res.pin);
-      onClose();
-    } catch (e: unknown) {
-      const err = e as { status?: number; message?: string; data?: { message?: string } };
-      setError(
-        err.data?.message ||
-          (err.status === 409
-            ? "You're still down — wait for your own resurrection before logging another."
-            : err.message || "Something broke. How fitting."),
-      );
-    } finally {
-      setSubmitting(false);
-    }
+    onDrop({
+      name: cleanName,
+      provider,
+      minutes,
+      share,
+      coords,
+      message: message.trim() || undefined,
+    });
+    onClose();
   }
 
   if (!open) return null;
@@ -197,14 +152,11 @@ export function KillModal({ open, onClose, onCreated }: { open: boolean; onClose
           🔒 We always estimate &amp; jitter locations. No accounts, no tracking — everything lives in your browser.
         </p>
 
-        {error && <div className="mb-3 rounded-lg bg-coral/15 px-3 py-2 text-xs text-coral">{error}</div>}
-
         <button
           onClick={submit}
-          disabled={submitting}
-          className="w-full rounded-xl bg-coral py-3 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-50"
+          className="w-full rounded-xl bg-coral py-3 text-sm font-bold text-black transition hover:brightness-110"
         >
-          {submitting ? "Logging your demise…" : "Drop my pin 🪦"}
+          Drop my pin 🪦
         </button>
       </div>
     </div>

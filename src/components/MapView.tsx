@@ -17,6 +17,9 @@ export interface FocusTarget {
   lng: number;
   /** Bumped on every focus request so re-clicking the same pin re-flies. */
   n: number;
+  /** Own-drop / instant reveal: skip the lazy glide and SNAP the view so the
+   *  card is on screen the very frame it lands (the card is the dopamine hit). */
+  snap?: boolean;
 }
 
 export interface ArriveTarget {
@@ -156,10 +159,15 @@ function FocusController({
     const n = focusTarget.n;
     const id = focusTarget.id;
 
-    // Snappy, dramatic fly straight to the pin.
+    // Snappy, dramatic fly straight to the pin — unless this is an instant drop,
+    // in which case we SNAP (no glide) so your card is there the moment it lands.
     if (flown.current !== n) {
       flown.current = n;
-      map.flyTo([focusTarget.lat, focusTarget.lng], 7, { duration: 1.0 });
+      if (focusTarget.snap) {
+        map.setView([focusTarget.lat, focusTarget.lng], Math.max(map.getZoom(), 6), { animate: false });
+      } else {
+        map.flyTo([focusTarget.lat, focusTarget.lng], 7, { duration: 1.0 });
+      }
     }
 
     // Open the card the INSTANT its marker exists — the optimistic cache insert

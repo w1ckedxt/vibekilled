@@ -4,12 +4,13 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePins, usePresence, useStats } from "@/lib/hooks";
-import { clearReactions, getMyPin, getName, getUserId, setMyPin, takeFirstVisit } from "@/lib/identity";
-import { fetchWhereami } from "@/lib/api";
+import { addUnlocked, clearReactions, getMyPin, getName, getUserId, setMyPin, takeFirstVisit } from "@/lib/identity";
+import { createPin, fetchWhereami, type CreateResponse } from "@/lib/api";
+import { obfuscate, hubForSeed } from "@/lib/geo";
 import { diagnosis } from "@/lib/lore";
 import { toast } from "@/lib/toast";
 import { PROVIDER_LIST } from "@/lib/providers";
-import type { Pin, ProviderId } from "@/lib/types";
+import type { DropForm, Pin, ProviderId } from "@/lib/types";
 import type { FocusTarget, ArriveTarget } from "@/components/MapView";
 import { KillButton } from "@/components/KillButton";
 import { KillModal } from "@/components/KillModal";
@@ -56,6 +57,31 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   loading: () => <div className="absolute inset-0 grid place-items-center text-white/30">Loading the graveyard…</div>,
 });
 
+// A fully-formed local pin so your card is alive on the very first frame — no
+// waiting on the server. The server's real pin (real id, jittered coords, flag)
+// replaces this a moment later. Coords fall back GPS → arrival area → your stable
+// dev-hub (the same last-resort the server uses), so the reconcile shift is tiny.
+function buildOptimisticPin(form: DropForm, fallback: { lat: number; lng: number } | null): Pin {
+  const now = Date.now();
+  const src = form.coords ?? fallback ?? hubForSeed(getUserId());
+  const { lat, lng } = obfuscate(src.lat, src.lng); // jitter locally too — never an exact spot on the map
+  return {
+    id: `tmp_${crypto.randomUUID()}`,
+    provider: form.provider,
+    lat,
+    lng,
+    createdAt: now,
+    recoverAt: now + form.minutes * 60_000,
+    name: form.name,
+    message: form.message,
+    good4u: 0,
+    sympathy: 0,
+    views: 0,
+    handshake: 1, // a warm welcome — you're never alone behind the wall 🤝
+    resurrected: false,
+  };
+}
+
 type LeftKey = "medals" | "kings";
 type MobileKey = "globe" | "kings" | "medals";
 
@@ -95,13 +121,14 @@ export default function Home() {
     setUserId(getUserId());
   }, []);
 
-  // First-time visitors (no pin of their own) get their coarse area on arrival —
-  // the lookup also nudges the server to seed devs near them.
+  // Resolve our coarse area on load — used both to fly first-time visitors into a
+  // populated neighbourhood (see the arrival effect) AND as the location a fresh
+  // drop's optimistic card lands on, so it matches where the server will place it
+  // (no visible jump on reconcile — including for a resurrected dev re-dropping).
+  // Seeding nearby devs is gated to a device's first-ever visit; refreshes just
+  // re-center the map, they never spawn more bots.
   useEffect(() => {
-    if (getMyPin()) return; // your own pin's auto-focus already centers the map
     let alive = true;
-    // Seed nearby devs only on a device's first-ever visit — refreshes just
-    // re-center the map, they never spawn more bots.
     fetchWhereami(takeFirstVisit()).then((loc) => {
       if (alive && loc) setArriveLoc(loc);
     });
@@ -162,7 +189,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats?.lastKill, myPinId]);
 
-  function focusOn(t: { id: string; lat: number; lng: number }) {
+  function focusOn(t: { id: string; lat: number; lng: number; snap?: boolean }) {
     focusSeq.current += 1;
     setFocus({ ...t, n: focusSeq.current });
   }
@@ -189,24 +216,92 @@ export default function Home() {
     clearReactions(); // so you can hand out sympathy / Good4U again while testing
   }
 
-  function onCreated(pin: Pin) {
-    // Optimistically drop YOUR pin into the map cache right now. Without this the
-    // marker doesn't exist until the next `usePins` poll (up to 4s), so there's
-    // nothing for the focus to open — the map drifts but your card never opens.
-    // Seeding it means the marker mounts this render, and the focus opens it.
+  // ── The drop ─────────────────────────────────────────────────────────────────
+  // Your card IS the dopamine hit, so it opens on the FIRST frame — no network in
+  // the way. We seed a local pin, snap to it, and fire the celebration instantly;
+  // the server confirmation lands a beat later and just reconciles the details.
+  function dropPin(form: DropForm) {
+    const optimistic = buildOptimisticPin(form, arriveLoc);
+    openMyCard(optimistic);
+    setModalOpen(false);
+
+    createPin({
+      userId: getUserId(),
+      name: form.name,
+      provider: form.provider,
+      recoveryMinutes: form.minutes,
+      shareLocation: form.share,
+      lat: form.coords?.lat,
+      lng: form.coords?.lng,
+      message: form.message,
+    })
+      .then((res) => reconcileDrop(optimistic.id, res))
+      .catch((err) => rollbackDrop(optimistic.id, err));
+  }
+
+  // Seed the caches + open the card this render. Nothing here touches the network.
+  function openMyCard(pin: Pin) {
     qc.setQueryData<Pin[]>(["pins"], (old) => {
       const list = old ?? [];
       return list.some((p) => p.id === pin.id) ? list : [pin, ...list];
     });
-    // Also seed the single-pin query so the popup's Campfire (useMyPin) has data
-    // with zero network wait — the card is fully alive the instant it opens.
+    // Seed the single-pin query too so the Campfire (useMyPin) is alive at once.
     qc.setQueryData(["pin", pin.id], pin);
-    // We're focusing on the fresh pin right here, so don't let the on-load
-    // auto-focus effect fire a second, redundant fly once the pin streams in.
+    // We're focusing right here, so the on-load auto-focus must not double-fire.
     didInitFocus.current = true;
     setMyPinId(pin.id);
     setDrop((d) => ({ seq: d.seq + 1, dx: diagnosis(pin.id) })); // fire the DROPPED celebration
-    focusOn({ id: pin.id, lat: pin.lat, lng: pin.lng });
+    focusOn({ id: pin.id, lat: pin.lat, lng: pin.lng, snap: true });
+  }
+
+  // Swap the local pin for the server's real one (real id, jittered coords, flag,
+  // country). Keeps the card open — the marker just re-mounts on the real id and
+  // self-opens. Persist the REAL id so a reload restores the card.
+  function reconcileDrop(tempId: string, res: CreateResponse) {
+    const real = res.pin;
+    qc.setQueryData<Pin[]>(["pins"], (old) => {
+      const list = (old ?? []).filter((p) => p.id !== tempId && p.id !== real.id);
+      return [real, ...list];
+    });
+    qc.removeQueries({ queryKey: ["pin", tempId] });
+    qc.setQueryData(["pin", real.id], real);
+    setMyPin(real.id);
+    setMyPinId(real.id);
+    qc.invalidateQueries({ queryKey: ["feed"] });
+    qc.invalidateQueries({ queryKey: ["stats"] });
+    focusOn({ id: real.id, lat: real.lat, lng: real.lng, snap: true });
+
+    if (res.achievement) {
+      addUnlocked(res.achievement.id);
+      toast({
+        tone: "achievement",
+        emoji: res.achievement.emoji,
+        title: `Achievement: ${res.achievement.title}`,
+        body: res.achievement.blurb,
+        ttl: 7000,
+      });
+    }
+  }
+
+  // The server said no (rate limit / cooldown / moderation). Pull the local pin
+  // back out and tell them why — the rare, unhappy path.
+  function rollbackDrop(tempId: string, err: unknown) {
+    qc.setQueryData<Pin[]>(["pins"], (old) => (old ?? []).filter((p) => p.id !== tempId));
+    qc.removeQueries({ queryKey: ["pin", tempId] });
+    setMyPin(null);
+    setMyPinId(null);
+    const e = err as { status?: number; message?: string; data?: { message?: string } };
+    toast({
+      tone: "warn",
+      emoji: "💀",
+      title: "That drop didn't stick",
+      body:
+        e.data?.message ||
+        (e.status === 409
+          ? "You're still down — wait for your own resurrection before logging another."
+          : e.message || "Something broke. How fitting."),
+      ttl: 6000,
+    });
   }
 
   // Your status card. The Campfire itself lives on your pin's card on the map.
@@ -352,7 +447,7 @@ export default function Home() {
         )}
       </div>
 
-      <KillModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={onCreated} />
+      <KillModal open={modalOpen} onClose={() => setModalOpen(false)} onDrop={dropPin} />
       <DropFlash seq={drop.seq} diagnosis={drop.dx} />
       <ReactionFX />
       {/* Backgrounded-tab pings for incoming sympathy / Good4U while you're down.

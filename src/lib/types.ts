@@ -2,6 +2,17 @@
 
 export type ProviderId = "claude" | "gemini" | "gpt" | "cursor" | "other";
 
+/** The form the Kill modal hands off the instant you drop — enough to open your
+ *  card locally before the server confirms (which reconciles the details). */
+export interface DropForm {
+  name: string;
+  provider: ProviderId;
+  minutes: number;
+  share: boolean;
+  coords: { lat: number; lng: number } | null;
+  message?: string;
+}
+
 export interface Pin {
   id: string;
   provider: ProviderId;
