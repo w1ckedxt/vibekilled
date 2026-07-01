@@ -36,6 +36,11 @@ export function Leaderboard() {
               </div>
               <div className="text-[12px] text-white/40">
                 💛 {r.good4u} · 🫂 {r.sympathy}
+                {r.tetris > 0 && (
+                  <span className="ml-1 text-ember/80" title="Tetris high score">
+                    · 🎮 {r.tetris.toLocaleString()}
+                  </span>
+                )}
               </div>
             </div>
             <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-electric">{r.score}</span>

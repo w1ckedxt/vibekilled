@@ -60,7 +60,8 @@ const K = {
   streak: "vk:user:streak", // hash userId -> current daily streak
   lastDay: "vk:user:lastday", // hash userId -> last active YYYY-MM-DD
   tetrisPlays: "vk:stat:tetris:plays", // total Campfire Tetris games played
-  tetrisHigh: "vk:stat:tetris:high", // highest Tetris score seen
+  tetrisHigh: "vk:stat:tetris:high", // highest Tetris score seen (global)
+  tetrisUserHigh: "vk:stat:tetris:userhigh", // hash userId -> personal best Tetris score
 };
 
 const PRESENCE_TTL_MS = 60_000;
@@ -588,6 +589,9 @@ export async function recordTetris(r: TetrisResult): Promise<boolean> {
   await redis.incr(K.tetrisPlays);
   const prevHigh = Number((await redis.get(K.tetrisHigh)) ?? 0);
   if (r.score > prevHigh) await redis.set(K.tetrisHigh, r.score);
+  // Personal best → surfaced next to each dev on the Vibe Kings leaderboard.
+  const prevUserHigh = Number((await redis.hget(K.tetrisUserHigh, r.userId)) ?? 0);
+  if (r.score > prevUserHigh) await redis.hset(K.tetrisUserHigh, { [r.userId]: r.score });
   await adminLog({
     type: "tetris",
     name: r.name,
@@ -649,6 +653,8 @@ export interface LeaderRow {
   score: number;
   good4u: number;
   sympathy: number;
+  /** Personal best Campfire Tetris score (0 if they've never played). */
+  tetris: number;
 }
 
 export async function getLeaderboard(limit = 10): Promise<LeaderRow[]> {
@@ -664,10 +670,11 @@ export async function getLeaderboard(limit = 10): Promise<LeaderRow[]> {
     scores.push(Number(raw[i + 1]));
   }
 
-  const [names, goods, symps] = await Promise.all([
+  const [names, goods, symps, tetris] = await Promise.all([
     redis.hmget<Record<string, string>>(K.lbName, ...ids),
     redis.hmget<Record<string, string>>(K.lbGood, ...ids),
     redis.hmget<Record<string, string>>(K.lbSymp, ...ids),
+    redis.hmget<Record<string, string>>(K.tetrisUserHigh, ...ids),
   ]);
 
   return ids.map((id, i) => ({
@@ -676,6 +683,7 @@ export async function getLeaderboard(limit = 10): Promise<LeaderRow[]> {
     score: scores[i],
     good4u: Number(goods?.[id] ?? 0),
     sympathy: Number(symps?.[id] ?? 0),
+    tetris: Number(tetris?.[id] ?? 0),
   }));
 }
 

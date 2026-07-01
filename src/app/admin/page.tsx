@@ -28,7 +28,7 @@ interface AdminStats {
   providers: Record<string, number>;
   countries: Record<string, number>;
   days: Record<string, number>;
-  leaderboard: { rank: number; name: string; score: number; good4u: number; sympathy: number }[];
+  leaderboard: { rank: number; name: string; score: number; good4u: number; sympathy: number; tetris: number }[];
   events: AdminEvent[];
   tetrisPlays: number;
   tetrisHigh: number;
@@ -254,7 +254,10 @@ export default function AdminPage() {
               <div key={r.rank} className="flex items-center gap-3 border-b border-white/5 py-1.5 text-sm last:border-0">
                 <span className="w-5 text-white/40">{r.rank}</span>
                 <span className="flex-1 truncate text-white/80">{r.name}</span>
-                <span className="text-white/40">💛 {r.good4u} · 🫂 {r.sympathy}</span>
+                <span className="text-white/40">
+                  💛 {r.good4u} · 🫂 {r.sympathy}
+                  {r.tetris > 0 && <span className="text-ember/80"> · 🎮 {r.tetris.toLocaleString()}</span>}
+                </span>
                 <span className="w-10 text-right font-mono text-electric">{r.score}</span>
               </div>
             ))}

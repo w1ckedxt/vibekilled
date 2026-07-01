@@ -78,6 +78,8 @@ export interface LeaderRow {
   score: number;
   good4u: number;
   sympathy: number;
+  /** Personal best Campfire Tetris score (0 if never played). */
+  tetris: number;
 }
 
 export async function fetchLeaderboard(): Promise<LeaderRow[]> {
