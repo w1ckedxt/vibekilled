@@ -109,6 +109,14 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
         </div>
       )}
 
+      {/* YOUR card is the universe behind the wall — the arcade sits right up top
+          so Tetris / LOLReads are the first thing you reach, not buried. */}
+      {isMine && !resurrected && (
+        <div className="mt-3">
+          <Campfire myPinId={pin.id} myProvider={pin.provider} />
+        </div>
+      )}
+
       {/* You're not alone behind the wall — live count of everyone waiting it out. */}
       <WaitingBadge count={waiting} />
 
@@ -137,14 +145,6 @@ export function PinPopup({ pin, isMine }: { pin: Pin; isMine: boolean }) {
       <div className="mt-2 text-center text-[11px] text-white/35">
         💛 {local.good4u} · 🫂 {local.sympathy} · 🤝 {pin.handshake} · {pin.views} 👁
       </div>
-
-      {/* YOUR card is the universe behind the wall: who's around the fire + the
-          arcade (Tetris, LOLReads). Lives only here, on your own pin. */}
-      {isMine && !resurrected && (
-        <div className="mt-3 -mx-3 -mb-3">
-          <Campfire myPinId={pin.id} myProvider={pin.provider} />
-        </div>
-      )}
     </div>
   );
 }

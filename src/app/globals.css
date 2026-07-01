@@ -84,10 +84,16 @@ body {
   color: rgba(255, 255, 255, 0.45) !important;
   padding: 6px 8px 0 0 !important;
 }
-/* Your own card (with the Campfire) gets room to breathe */
+/* Your own card (with the Campfire) gets room to breathe — and a cap + scroll so
+   a tall card (arcade + stats) is always fully reachable, never clipped off the
+   bottom of the screen. Leaflet disables scroll-propagation on popup content, so
+   scrolling here scrolls the card, not the map. */
 .vk-mypopup .leaflet-popup-content {
   margin: 12px 12px !important;
   width: 300px !important;
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .leaflet-container a.leaflet-popup-close-button:hover {
   color: #fff !important;

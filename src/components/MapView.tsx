@@ -93,11 +93,26 @@ const PinMarker = memo(function PinMarker({
   // so reactions/presence updates never re-trigger the spawn glow animation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const icon = useMemo(() => makeIcon(pin), [pin.provider, pin.resurrected]);
+  const ref = useRef<L.Marker | null>(null);
+
+  // YOUR OWN pin opens its card the instant this marker mounts — no dependency on
+  // any external focus/ref timing (which kept failing). By the time this effect
+  // runs, react-leaflet has already added the layer to the map and bound the
+  // popup (child effects run first), so openPopup() is guaranteed to work. The
+  // popup's autoPan brings it into view. This is what makes the card appear
+  // IMMEDIATELY after a drop and on every reload while you're still down.
+  useEffect(() => {
+    if (mine && ref.current) ref.current.openPopup();
+  }, [mine]);
+
   return (
     <Marker
       position={[pin.lat, pin.lng]}
       icon={icon}
-      ref={(r) => onRef(pin.id, r)}
+      ref={(r) => {
+        ref.current = r;
+        onRef(pin.id, r);
+      }}
       eventHandlers={{
         popupopen: () => {
           if (!mine) reactPin(pin.id, "view").catch(() => {});
