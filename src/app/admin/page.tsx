@@ -11,9 +11,13 @@ interface AdminEvent {
   name?: string;
   provider?: string;
   country?: string;
+  actorCountry?: string;
   text?: string;
   at: number;
 }
+
+// Reactions carry a giver → receiver country pair; everything else is single-country.
+const GIVES: ReadonlySet<AdminEvent["type"]> = new Set(["good4u", "sympathy", "handshake"]);
 
 interface AdminStats {
   online: number;
@@ -225,7 +229,14 @@ export default function AdminPage() {
                     <span>{m.icon}</span>
                     <span className="text-white/80">{e.name ?? "someone"}</span>
                     <span className={m.color}>{m.label}</span>
-                    {e.country && <span className="text-white/30">{flagEmoji(e.country)}</span>}
+                    {GIVES.has(e.type) && e.actorCountry ? (
+                      <span className="whitespace-nowrap text-white/30" title="giver → receiver">
+                        {flagEmoji(e.actorCountry)} <span className="text-gold/60">→</span>{" "}
+                        {e.country ? flagEmoji(e.country) : "🌍"}
+                      </span>
+                    ) : (
+                      e.country && <span className="text-white/30">{flagEmoji(e.country)}</span>
+                    )}
                     {e.text && <span className="truncate italic text-white/40">“{e.text}”</span>}
                     <span className="ml-auto shrink-0 text-xs text-white/25">{rel(e.at)}</span>
                   </div>

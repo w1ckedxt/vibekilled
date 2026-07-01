@@ -104,7 +104,10 @@ export interface AdminEvent {
   type: AdminEventType;
   name?: string;
   provider?: ProviderId;
+  /** The country the event is ABOUT (the downed dev / receiver of a reaction). */
   country?: string;
+  /** For reactions: the country of whoever GAVE it → admin can read "🇳🇱 → 🇧🇷". */
+  actorCountry?: string;
   text?: string;
   at: number;
 }

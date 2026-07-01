@@ -487,7 +487,7 @@ export async function react(
       country: pin.country,
       actorCountry,
     });
-    await adminLog({ type: action as AdminEvent["type"], name: pin.name, provider: pin.provider, country: pin.country });
+    await adminLog({ type: action as AdminEvent["type"], name: pin.name, provider: pin.provider, country: pin.country, actorCountry });
   }
   return pin;
 }
